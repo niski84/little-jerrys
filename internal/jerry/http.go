@@ -195,6 +195,18 @@ func NewServer(app *App) http.Handler {
 		})
 	})
 
+	// /api/update/status — returns the pending OTA update notice (if any).
+	// Polled by the dashboard banner every 30s. Returns 204 when no update
+	// is pending; 200 + JSON when a restart is scheduled.
+	authed.HandleFunc("GET /api/update/status", func(w http.ResponseWriter, r *http.Request) {
+		notice := app.GetUpdateNotice()
+		if notice == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		respondJSON(w, http.StatusOK, notice)
+	})
+
 	// /api/status — single source of truth for "what's happening right
 	// now." Polled by the dashboard every second to keep the playhead +
 	// progress bar live. Also useful for ad-hoc inspection from curl /

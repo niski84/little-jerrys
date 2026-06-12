@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write  # needed to create releases and upload assets
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Node (Tailwind CSS build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install templ
+        run: go install github.com/a-h/templ/cmd/templ@latest
+
+      - name: Install npm deps
+        run: npm ci --silent --no-audit --no-fund
+
+      - name: Generate templ views
+        run: templ generate -path ./internal/jerry/views
+
+      - name: Build Tailwind CSS
+        run: npm run --silent build:css
+
+      - name: Cross-compile arm64 binary
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+            go build -tags pi -trimpath \
+            -ldflags="-s -w -X main.Version=${VERSION}" \
+            -o jerry-arm64 ./cmd/little-jerrys
+          file jerry-arm64
+          ls -lh jerry-arm64
+
+      - name: Create GitHub Release and upload binary
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jerry-arm64
+          generate_release_notes: true

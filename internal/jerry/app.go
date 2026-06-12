@@ -68,8 +68,35 @@ type App struct {
 	// track crosses the completion threshold (75% of duration). Reset on
 	// PlayNext so the next track starts uncredited. Avoids double-counting
 	// when the tracker ticks repeatedly while a track is past 75%.
-	creditMu       sync.Mutex
-	creditedTrack  string
+	creditMu      sync.Mutex
+	creditedTrack string
+
+	// Pending OTA update announcement. Set by the updater goroutine; read
+	// by the /api/update/status endpoint and the dashboard banner.
+	updateMu     sync.RWMutex
+	updateNotice *UpdateNotice
+}
+
+// UpdateNotice holds the details of a staged OTA update that is pending
+// a maintenance restart.
+type UpdateNotice struct {
+	Version    string    `json:"version"`
+	ReleaseURL string    `json:"release_url"`
+	ApplyAt    time.Time `json:"apply_at"`
+}
+
+// SetUpdateNotice stores the pending update announcement.
+func (a *App) SetUpdateNotice(n *UpdateNotice) {
+	a.updateMu.Lock()
+	a.updateNotice = n
+	a.updateMu.Unlock()
+}
+
+// UpdateNotice returns the pending update, or nil if none.
+func (a *App) GetUpdateNotice() *UpdateNotice {
+	a.updateMu.RLock()
+	defer a.updateMu.RUnlock()
+	return a.updateNotice
 }
 
 // CurrentMode returns the active mode (playback vs. off-hours).

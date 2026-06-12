@@ -156,6 +156,16 @@ sudo install -m 0644 deploy/firstboot/jerry-usb.rules \
 sudo install -d -m 0755 "$MNT_ROOT/etc/mpv"
 sudo install -m 0644 deploy/firstboot/mpv.conf "$MNT_ROOT/etc/mpv/mpv.conf"
 
+# OTA update apply script — the jerry user calls this via sudoers.
+sudo install -m 0755 deploy/update-apply.sh "$MNT_ROOT/opt/jerry/update-apply.sh"
+
+# sudoers drop-in: jerry may run update-apply.sh as root without a password.
+# Scoped tightly to that one script — no general sudo access.
+sudo install -d -m 0755 "$MNT_ROOT/etc/sudoers.d"
+printf 'jerry ALL=(root) NOPASSWD: /opt/jerry/update-apply.sh\n' | \
+  sudo tee "$MNT_ROOT/etc/sudoers.d/jerry-update" >/dev/null
+sudo chmod 0440 "$MNT_ROOT/etc/sudoers.d/jerry-update"
+
 # --- 4b. Bake media files into /opt/jerry/media (if provided) ---
 if $BAKE_MEDIA; then
   log "copying media files into image (this may take a while)"

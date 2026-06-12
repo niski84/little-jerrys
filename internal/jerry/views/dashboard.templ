@@ -44,7 +44,71 @@ templ Dashboard(vm DashboardVM) {
 	@Layout("Little Jerry's — Now Playing", dashboardBody(vm))
 }
 
+// updateBanner polls /api/update/status every 30s and shows a countdown
+// banner when a maintenance restart is pending.
+templ UpdateBanner() {
+	<div
+		id="update-banner"
+		class="hidden mb-4 rounded-lg border border-amber-500/40 bg-amber-950/60 px-4 py-3 text-amber-200 text-sm"
+		hx-get="/api/update/status"
+		hx-trigger="load, every 30s"
+		hx-swap="none"
+		x-data="updateBanner()"
+		x-init="poll()"
+	>
+		<div class="flex items-start gap-3">
+			<span class="mt-0.5 text-amber-400">⚠</span>
+			<div class="flex-1">
+				<p class="font-semibold">Maintenance restart scheduled</p>
+				<p class="mt-0.5 opacity-80">
+					Little Jerry's <span x-text="version"></span> is ready.
+					Restarting in <span x-text="countdown" class="font-mono font-bold"></span>.
+					<a :href="releaseURL" target="_blank" rel="noopener" class="underline ml-1">See what's new</a>
+				</p>
+			</div>
+		</div>
+	</div>
+	<script>
+	function updateBanner() {
+		return {
+			version: '',
+			releaseURL: '#',
+			applyAt: null,
+			countdown: '',
+			_timer: null,
+			poll() {
+				fetch('/api/update/status')
+					.then(r => r.status === 204 ? null : r.json())
+					.then(data => {
+						if (!data) { this._hide(); return; }
+						this.version = data.version;
+						this.releaseURL = data.release_url || '#';
+						this.applyAt = new Date(data.apply_at);
+						this._show();
+						this._startCountdown();
+					})
+					.catch(() => {});
+				// re-poll every 30s
+				setTimeout(() => this.poll(), 30000);
+			},
+			_startCountdown() {
+				if (this._timer) clearInterval(this._timer);
+				this._timer = setInterval(() => {
+					const secs = Math.max(0, Math.round((this.applyAt - Date.now()) / 1000));
+					if (secs <= 0) { this.countdown = 'now'; clearInterval(this._timer); return; }
+					const m = Math.floor(secs / 60), s = secs % 60;
+					this.countdown = m > 0 ? `${m}m ${s}s` : `${s}s`;
+				}, 1000);
+			},
+			_show() { document.getElementById('update-banner').classList.remove('hidden'); },
+			_hide() { document.getElementById('update-banner').classList.add('hidden'); },
+		}
+	}
+	</script>
+}
+
 templ dashboardBody(vm DashboardVM) {
+	@UpdateBanner()
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 		<!-- Now Playing hero — broadcast title-card treatment -->
 		<section class="lg:col-span-2 dashboard-hero">

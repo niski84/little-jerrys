@@ -77,7 +77,9 @@ func Dashboard(vm DashboardVM) templ.Component {
 	})
 }
 
-func dashboardBody(vm DashboardVM) templ.Component {
+// updateBanner polls /api/update/status every 30s and shows a countdown
+// banner when a maintenance restart is pending.
+func UpdateBanner() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -98,288 +100,321 @@ func dashboardBody(vm DashboardVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"grid grid-cols-1 gap-6 lg:grid-cols-3\"><!-- Now Playing hero — broadcast title-card treatment --><section class=\"lg:col-span-2 dashboard-hero\"><div class=\"lower-third -mx-6 -mt-6 mb-5\"><span class=\"label\">On Air · Now Playing</span> <span class=\"data\" data-testid=\"lt-title\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"update-banner\" class=\"hidden mb-4 rounded-lg border border-amber-500/40 bg-amber-950/60 px-4 py-3 text-amber-200 text-sm\" hx-get=\"/api/update/status\" hx-trigger=\"load, every 30s\" hx-swap=\"none\" x-data=\"updateBanner()\" x-init=\"poll()\"><div class=\"flex items-start gap-3\"><span class=\"mt-0.5 text-amber-400\">⚠</span><div class=\"flex-1\"><p class=\"font-semibold\">Maintenance restart scheduled</p><p class=\"mt-0.5 opacity-80\">Little Jerry's <span x-text=\"version\"></span> is ready. Restarting in <span x-text=\"countdown\" class=\"font-mono font-bold\"></span>. <a :href=\"releaseURL\" target=\"_blank\" rel=\"noopener\" class=\"underline ml-1\">See what's new</a></p></div></div></div><script>\n\tfunction updateBanner() {\n\t\treturn {\n\t\t\tversion: '',\n\t\t\treleaseURL: '#',\n\t\t\tapplyAt: null,\n\t\t\tcountdown: '',\n\t\t\t_timer: null,\n\t\t\tpoll() {\n\t\t\t\tfetch('/api/update/status')\n\t\t\t\t\t.then(r => r.status === 204 ? null : r.json())\n\t\t\t\t\t.then(data => {\n\t\t\t\t\t\tif (!data) { this._hide(); return; }\n\t\t\t\t\t\tthis.version = data.version;\n\t\t\t\t\t\tthis.releaseURL = data.release_url || '#';\n\t\t\t\t\t\tthis.applyAt = new Date(data.apply_at);\n\t\t\t\t\t\tthis._show();\n\t\t\t\t\t\tthis._startCountdown();\n\t\t\t\t\t})\n\t\t\t\t\t.catch(() => {});\n\t\t\t\t// re-poll every 30s\n\t\t\t\tsetTimeout(() => this.poll(), 30000);\n\t\t\t},\n\t\t\t_startCountdown() {\n\t\t\t\tif (this._timer) clearInterval(this._timer);\n\t\t\t\tthis._timer = setInterval(() => {\n\t\t\t\t\tconst secs = Math.max(0, Math.round((this.applyAt - Date.now()) / 1000));\n\t\t\t\t\tif (secs <= 0) { this.countdown = 'now'; clearInterval(this._timer); return; }\n\t\t\t\t\tconst m = Math.floor(secs / 60), s = secs % 60;\n\t\t\t\t\tthis.countdown = m > 0 ? `${m}m ${s}s` : `${s}s`;\n\t\t\t\t}, 1000);\n\t\t\t},\n\t\t\t_show() { document.getElementById('update-banner').classList.remove('hidden'); },\n\t\t\t_hide() { document.getElementById('update-banner').classList.add('hidden'); },\n\t\t}\n\t}\n\t</script>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func dashboardBody(vm DashboardVM) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = UpdateBanner().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"grid grid-cols-1 gap-6 lg:grid-cols-3\"><!-- Now Playing hero — broadcast title-card treatment --><section class=\"lg:col-span-2 dashboard-hero\"><div class=\"lower-third -mx-6 -mt-6 mb-5\"><span class=\"label\">On Air · Now Playing</span> <span class=\"data\" data-testid=\"lt-title\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.NowTitle != "" {
-			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NowTitle)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 55, Col: 19}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else if vm.NowPlaying.NowPlaying != "" {
 			var templ_7745c5c3_Var4 string
-			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(filepath.Base(vm.NowPlaying.NowPlaying))
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NowTitle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 57, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 119, Col: 19}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+		} else if vm.NowPlaying.NowPlaying != "" {
+			var templ_7745c5c3_Var5 string
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(filepath.Base(vm.NowPlaying.NowPlaying))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 121, Col: 47}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "— off air —")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "— off air —")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span></div><div class=\"mt-4 grid grid-cols-1 gap-6 md:grid-cols-[14rem_1fr]\"><div class=\"w-full md:w-56\"><div class=\"aspect-video w-full overflow-hidden rounded-lg border border-zinc-200 bg-black dark:border-white/10\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</span></div><div class=\"mt-4 grid grid-cols-1 gap-6 md:grid-cols-[14rem_1fr]\"><div class=\"w-full md:w-56\"><div class=\"aspect-video w-full overflow-hidden rounded-lg border border-zinc-200 bg-black dark:border-white/10\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.NowPlaying.NowPlaying != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<video id=\"now-video\" data-testid=\"now-video\" class=\"h-full w-full bg-black\" src=\"/api/now/preview\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<video id=\"now-video\" data-testid=\"now-video\" class=\"h-full w-full bg-black\" src=\"/api/now/preview\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if vm.NowImageURL != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " poster=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " poster=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.NowImageURL)
+				var templ_7745c5c3_Var6 string
+				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.NowImageURL)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 72, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 136, Col: 57}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " controls autoplay muted preload=\"auto\" playsinline>your browser doesn't support inline video</video>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " controls autoplay muted preload=\"auto\" playsinline>your browser doesn't support inline video</video>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if vm.NowImageURL != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<img src=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.NowImageURL)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 80, Col: 32}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" alt=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<img src=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.NowTitle)
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.NowImageURL)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 80, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 144, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" class=\"h-full w-full object-cover\" data-testid=\"now-image\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" alt=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var8 string
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.NowTitle)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 144, Col: 52}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" class=\"h-full w-full object-cover\" data-testid=\"now-image\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"flex h-full items-center justify-center font-mono text-xs text-zinc-400 dark:text-zinc-600\" data-testid=\"now-image-placeholder\">nothing loaded</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"flex h-full items-center justify-center font-mono text-xs text-zinc-400 dark:text-zinc-600\" data-testid=\"now-image-placeholder\">nothing loaded</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div><p class=\"mt-1 text-center font-mono text-[10px] text-zinc-500 dark:text-zinc-400\"><span class=\"inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500\"></span> live preview · mirrors HDMI · muted by default</p></div><div class=\"min-w-0\"><h1 class=\"break-all text-2xl font-bold\" data-testid=\"now-playing\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div><p class=\"mt-1 text-center font-mono text-[10px] text-zinc-500 dark:text-zinc-400\"><span class=\"inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500\"></span> live preview · mirrors HDMI · muted by default</p></div><div class=\"min-w-0\"><h1 class=\"break-all text-2xl font-bold\" data-testid=\"now-playing\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.NowTitle != "" {
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NowTitle)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 93, Col: 20}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else if vm.NowPlaying.NowPlaying != "" {
 			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(filepath.Base(vm.NowPlaying.NowPlaying))
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NowTitle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 95, Col: 48}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 157, Col: 20}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+		} else if vm.NowPlaying.NowPlaying != "" {
+			var templ_7745c5c3_Var10 string
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(filepath.Base(vm.NowPlaying.NowPlaying))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 159, Col: 48}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "— nothing yet —")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "— nothing yet —")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</h1><p id=\"live-paused\" class=\"mt-1 text-sm text-rose-500 dark:text-rose-400\" style=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</h1><p id=\"live-paused\" class=\"mt-1 text-sm text-rose-500 dark:text-rose-400\" style=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(pausedStyle(vm.NowPlaying.Paused))
+		var templ_7745c5c3_Var11 string
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(pausedStyle(vm.NowPlaying.Paused))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 100, Col: 120}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 164, Col: 120}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" data-testid=\"live-paused\">Paused</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" data-testid=\"live-paused\">Paused</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.NowSynopsis != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<p class=\"mt-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300\" data-testid=\"now-synopsis\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<p class=\"mt-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300\" data-testid=\"now-synopsis\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NowSynopsis)
+			var templ_7745c5c3_Var12 string
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(vm.NowSynopsis)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 102, Col: 122}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 166, Col: 122}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<!-- Live transport: position / duration with a click-to-seek bar.\n\t\t\t\t\t     Updated every 1s by the polling script below the section. --><div class=\"mt-5\" data-testid=\"transport\"><div class=\"flex items-baseline justify-between font-mono text-[11px] text-zinc-600 dark:text-zinc-300\"><span id=\"live-position\" data-testid=\"live-position\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(fmtPosition(vm.PositionSeconds))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 109, Col: 93}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</span> <span class=\"text-zinc-400 dark:text-zinc-500\"><span id=\"live-mode\" data-testid=\"live-mode\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<!-- Live transport: position / duration with a click-to-seek bar.\n\t\t\t\t\t     Updated every 1s by the polling script below the section. --><div class=\"mt-5\" data-testid=\"transport\"><div class=\"flex items-baseline justify-between font-mono text-[11px] text-zinc-600 dark:text-zinc-300\"><span id=\"live-position\" data-testid=\"live-position\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs("—")
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(fmtPosition(vm.PositionSeconds))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 110, Col: 106}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 173, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</span></span> <span id=\"live-duration\" data-testid=\"live-duration\">—</span></div><div id=\"seek-bar\" class=\"mt-1 h-2 cursor-pointer rounded-full bg-zinc-200 dark:bg-zinc-800\" title=\"Click to seek\" data-testid=\"seek-bar\"><div id=\"seek-fill\" class=\"h-2 rounded-full bg-amber-500 transition-[width] duration-300 dark:bg-amber-400\" style=\"width:0%\"></div></div></div><div class=\"mt-6 flex flex-wrap gap-3\"><button class=\"btn btn-primary\" hx-post=\"/api/play\" hx-swap=\"none\" data-testid=\"btn-play\">Play</button> <button class=\"btn\" hx-post=\"/api/pause\" hx-swap=\"none\" data-testid=\"btn-pause\">Pause</button> <button class=\"btn btn-warning\" hx-post=\"/api/skip\" hx-swap=\"none\" data-testid=\"btn-skip\">Skip (Bailout)</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"-30\" data-testid=\"btn-seek-back-30\">−30s</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"-10\" data-testid=\"btn-seek-back-10\">−10s</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"10\" data-testid=\"btn-seek-fwd-10\">+10s</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"30\" data-testid=\"btn-seek-fwd-30\">+30s</button> <button class=\"btn btn-ghost\" hx-post=\"/api/button/press\" hx-swap=\"none\" data-testid=\"btn-simulate-gpio\">Simulate GPIO</button></div></div></div></section><!-- Catalog stats --><aside class=\"rounded-2xl border border-zinc-200 bg-white/85 p-6 dark:border-white/10 dark:bg-zinc-900/55\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400\">Catalog</p><dl class=\"mt-4 space-y-3 text-sm\"><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Episodes</dt><dd class=\"font-mono\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</span> <span class=\"text-zinc-400 dark:text-zinc-500\"><span id=\"live-mode\" data-testid=\"live-mode\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.TotalEpisodes))
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("—")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 141, Col: 156}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 174, Col: 106}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Blacklisted</dt><dd class=\"font-mono\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span></span> <span id=\"live-duration\" data-testid=\"live-duration\">—</span></div><div id=\"seek-bar\" class=\"mt-1 h-2 cursor-pointer rounded-full bg-zinc-200 dark:bg-zinc-800\" title=\"Click to seek\" data-testid=\"seek-bar\"><div id=\"seek-fill\" class=\"h-2 rounded-full bg-amber-500 transition-[width] duration-300 dark:bg-amber-400\" style=\"width:0%\"></div></div></div><div class=\"mt-6 flex flex-wrap gap-3\"><button class=\"btn btn-primary\" hx-post=\"/api/play\" hx-swap=\"none\" data-testid=\"btn-play\">Play</button> <button class=\"btn\" hx-post=\"/api/pause\" hx-swap=\"none\" data-testid=\"btn-pause\">Pause</button> <button class=\"btn btn-warning\" hx-post=\"/api/skip\" hx-swap=\"none\" data-testid=\"btn-skip\">Skip (Bailout)</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"-30\" data-testid=\"btn-seek-back-30\">−30s</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"-10\" data-testid=\"btn-seek-back-10\">−10s</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"10\" data-testid=\"btn-seek-fwd-10\">+10s</button> <button class=\"btn btn-ghost btn-sm\" data-seek=\"30\" data-testid=\"btn-seek-fwd-30\">+30s</button> <button class=\"btn btn-ghost\" hx-post=\"/api/button/press\" hx-swap=\"none\" data-testid=\"btn-simulate-gpio\">Simulate GPIO</button></div></div></div></section><!-- Catalog stats --><aside class=\"rounded-2xl border border-zinc-200 bg-white/85 p-6 dark:border-white/10 dark:bg-zinc-900/55\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400\">Catalog</p><dl class=\"mt-4 space-y-3 text-sm\"><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Episodes</dt><dd class=\"font-mono\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.BlacklistedCount))
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.TotalEpisodes))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 142, Col: 162}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 205, Col: 156}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Weighted</dt><dd class=\"font-mono\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Blacklisted</dt><dd class=\"font-mono\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.WeightedCount))
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.BlacklistedCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 143, Col: 156}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 206, Col: 162}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Queue remaining</dt><dd class=\"font-mono\" data-testid=\"queue-remaining\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Weighted</dt><dd class=\"font-mono\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.QueueRemaining))
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.WeightedCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 144, Col: 194}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 207, Col: 156}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Commercials</dt><dd class=\"font-mono\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if vm.Stats.CommercialsEnabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<span class=\"text-emerald-600 dark:text-emerald-400\">on</span> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<span class=\"text-zinc-500\">off</span> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "· ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Queue remaining</dt><dd class=\"font-mono\" data-testid=\"queue-remaining\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 string
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.CommercialsLoaded))
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.QueueRemaining))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 153, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 208, Col: 194}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, " loaded</dd></div></dl></aside><!-- Up-Next playlist editor --><section class=\"lg:col-span-3 rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55\"><div class=\"flex items-center justify-between gap-4\"><div><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400\">Up next</p><h2 class=\"mt-1 text-xl font-bold\">Playlist</h2></div><form method=\"POST\" action=\"/api/queue/regenerate\" hx-post=\"/api/queue/regenerate\" hx-on::after-request=\"window.location.reload()\"><button class=\"btn btn-warning btn-sm\" data-testid=\"btn-regenerate\">Regenerate (apply weights)</button></form></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</dd></div><div class=\"flex justify-between\"><dt class=\"text-zinc-500 dark:text-zinc-400\">Commercials</dt><dd class=\"font-mono\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if len(vm.Queue) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<p class=\"mt-6 rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-white/10\" data-testid=\"queue-empty\">Queue is empty. Hit Regenerate.</p>")
+		if vm.Stats.CommercialsEnabled {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<span class=\"text-emerald-600 dark:text-emerald-400\">on</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<ol id=\"queue-list\" class=\"mt-6 space-y-1\" data-testid=\"queue-list\" x-data=\"queueSortable()\" x-init=\"init($el)\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<span class=\"text-zinc-500\">off</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "· ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(vm.Stats.CommercialsLoaded))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 217, Col: 51}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, " loaded</dd></div></dl></aside><!-- Up-Next playlist editor --><section class=\"lg:col-span-3 rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55\"><div class=\"flex items-center justify-between gap-4\"><div><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400\">Up next</p><h2 class=\"mt-1 text-xl font-bold\">Playlist</h2></div><form method=\"POST\" action=\"/api/queue/regenerate\" hx-post=\"/api/queue/regenerate\" hx-on::after-request=\"window.location.reload()\"><button class=\"btn btn-warning btn-sm\" data-testid=\"btn-regenerate\">Regenerate (apply weights)</button></form></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if len(vm.Queue) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<p class=\"mt-6 rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-white/10\" data-testid=\"queue-empty\">Queue is empty. Hit Regenerate.</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<ol id=\"queue-list\" class=\"mt-6 space-y-1\" data-testid=\"queue-list\" x-data=\"queueSortable()\" x-init=\"init($el)\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -389,45 +424,45 @@ func dashboardBody(vm DashboardVM) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</ol><p class=\"mt-3 text-xs text-zinc-500 dark:text-zinc-500\">Drag to reorder · click ✕ to remove an item · breaks show estimated seconds</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</ol><p class=\"mt-3 text-xs text-zinc-500 dark:text-zinc-500\">Drag to reorder · click ✕ to remove an item · breaks show estimated seconds</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(vm.LoopHot) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<section class=\"lg:col-span-3 rounded-2xl border border-rose-500/40 bg-rose-50 p-6 dark:bg-rose-950/30\" data-testid=\"loop-guard\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-rose-600 dark:text-rose-300\">Loop Guard</p><p class=\"mt-2 text-sm text-rose-800 dark:text-rose-200\">These episodes have played more than the threshold in the last 24 hours. This is the original DVD-loop problem — investigate before it gets worse.</p><ul class=\"mt-3 space-y-1 font-mono text-xs text-rose-900 dark:text-rose-100\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<section class=\"lg:col-span-3 rounded-2xl border border-rose-500/40 bg-rose-50 p-6 dark:bg-rose-950/30\" data-testid=\"loop-guard\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-rose-600 dark:text-rose-300\">Loop Guard</p><p class=\"mt-2 text-sm text-rose-800 dark:text-rose-200\">These episodes have played more than the threshold in the last 24 hours. This is the original DVD-loop problem — investigate before it gets worse.</p><ul class=\"mt-3 space-y-1 font-mono text-xs text-rose-900 dark:text-rose-100\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, p := range vm.LoopHot {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var19 string
-				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(filepath.Base(p))
+				var templ_7745c5c3_Var20 string
+				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(filepath.Base(p))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 200, Col: 28}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 264, Col: 28}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</ul></section>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</ul></section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</div><!-- Sortable.js: lightweight drag library, works on touch devices. --><script src=\"https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js\"></script><script>\n\t\tfunction queueSortable() {\n\t\t\treturn {\n\t\t\t\tinit(el) {\n\t\t\t\t\tSortable.create(el, {\n\t\t\t\t\t\tanimation: 150,\n\t\t\t\t\t\thandle: '.queue-handle',\n\t\t\t\t\t\tonEnd: (e) => {\n\t\t\t\t\t\t\tif (e.oldIndex === e.newIndex) return;\n\t\t\t\t\t\t\tfetch('/api/queue/reorder', {\n\t\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\t\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n\t\t\t\t\t\t\t\tbody: new URLSearchParams({ from: e.oldIndex, to: e.newIndex }),\n\t\t\t\t\t\t\t}).then(() => window.location.reload());\n\t\t\t\t\t\t},\n\t\t\t\t\t});\n\t\t\t\t},\n\t\t\t};\n\t\t}\n\t</script><!-- Live transport: poll /api/status every 1s + click-to-seek bar. --><script>\n\t\t(function () {\n\t\t\tlet lastDuration = 0;\n\t\t\tlet lastFile = null;\n\n\t\t\tfunction fmtTime(s) {\n\t\t\t\tif (!isFinite(s) || s < 0) s = 0;\n\t\t\t\tconst m = Math.floor(s / 60);\n\t\t\t\tconst r = Math.floor(s % 60);\n\t\t\t\treturn m + ':' + (r < 10 ? '0' : '') + r;\n\t\t\t}\n\t\t\tasync function tick() {\n\t\t\t\ttry {\n\t\t\t\t\tconst res = await fetch('/api/status', { headers: { 'Accept': 'application/json' } });\n\t\t\t\t\tif (!res.ok) return;\n\t\t\t\t\tconst s = await res.json();\n\t\t\t\t\tdocument.getElementById('live-position').textContent = fmtTime(s.position_secs);\n\t\t\t\t\tdocument.getElementById('live-duration').textContent = fmtTime(s.duration_secs);\n\t\t\t\t\tdocument.getElementById('live-mode').textContent = s.mode || '—';\n\t\t\t\t\tdocument.getElementById('live-paused').style.display = s.paused ? '' : 'none';\n\t\t\t\t\tlastDuration = s.duration_secs || 0;\n\t\t\t\t\tconst pct = lastDuration > 0 ? Math.max(0, Math.min(100, 100 * s.position_secs / lastDuration)) : 0;\n\t\t\t\t\tdocument.getElementById('seek-fill').style.width = pct + '%';\n\t\t\t\t\t// File change: swap the video src in place (no page reload).\n\t\t\t\t\t// Cache-bust with a query param so the browser refetches.\n\t\t\t\t\tconst v = document.getElementById('now-video');\n\t\t\t\t\tif (lastFile !== null && s.now_filename && s.now_filename !== lastFile) {\n\t\t\t\t\t\tif (v) {\n\t\t\t\t\t\t\tv.src = '/api/now/preview?t=' + Date.now();\n\t\t\t\t\t\t\tv.load();\n\t\t\t\t\t\t\t// Match mpv's pause/play state on the new file.\n\t\t\t\t\t\t\tif (!s.paused) v.play().catch(function(){});\n\t\t\t\t\t\t}\n\t\t\t\t\t\tconst title = document.querySelector('[data-testid=\"now-playing\"]');\n\t\t\t\t\t\tif (title && s.now_filename) {\n\t\t\t\t\t\t\ttitle.textContent = s.now_title || s.now_filename;\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t\tlastFile = s.now_filename;\n\t\t\t\t\t// Mirror mpv pause/play state onto the preview <video>.\n\t\t\t\t\t// Without this, the preview keeps streaming when staff\n\t\t\t\t\t// pauses the TV (and vice versa), which made the controls\n\t\t\t\t\t// feel disconnected.\n\t\t\t\t\tif (v && v.readyState >= 2) {\n\t\t\t\t\t\tif (s.paused && !v.paused) {\n\t\t\t\t\t\t\tv.pause();\n\t\t\t\t\t\t} else if (!s.paused && v.paused) {\n\t\t\t\t\t\t\tv.play().catch(function(){});\n\t\t\t\t\t\t}\n\t\t\t\t\t\t// Resync currentTime if the preview has drifted more\n\t\t\t\t\t\t// than 2s from mpv (user scrubbed the preview, or\n\t\t\t\t\t\t// network buffered ahead). Threshold is wide enough\n\t\t\t\t\t\t// that decoder jitter doesn't cause visible jumps.\n\t\t\t\t\t\tif (lastDuration > 0 && Math.abs(v.currentTime - s.position_secs) > 2) {\n\t\t\t\t\t\t\ttry { v.currentTime = s.position_secs; } catch (e) {}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t} catch (e) { /* network blip; try again next tick */ }\n\t\t\t}\n\n\t\t\t// Click-to-seek on the bar.\n\t\t\tconst bar = document.getElementById('seek-bar');\n\t\t\tif (bar) {\n\t\t\t\tbar.addEventListener('click', function (ev) {\n\t\t\t\t\tif (!lastDuration) return;\n\t\t\t\t\tconst rect = bar.getBoundingClientRect();\n\t\t\t\t\tconst ratio = (ev.clientX - rect.left) / rect.width;\n\t\t\t\t\tconst target = Math.max(0, ratio * lastDuration);\n\t\t\t\t\tfetch('/api/seek', {\n\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n\t\t\t\t\t\tbody: new URLSearchParams({ secs: target.toFixed(1) }),\n\t\t\t\t\t}).then(tick);\n\t\t\t\t});\n\t\t\t}\n\n\t\t\t// Relative-seek buttons: ±10s / ±30s.\n\t\t\tdocument.querySelectorAll('button[data-seek]').forEach(function (btn) {\n\t\t\t\tbtn.addEventListener('click', async function () {\n\t\t\t\t\tconst delta = parseFloat(btn.dataset.seek || '0');\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/status').then(r => r.json());\n\t\t\t\t\t\tconst target = Math.max(0, (r.position_secs || 0) + delta);\n\t\t\t\t\t\tawait fetch('/api/seek', {\n\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n\t\t\t\t\t\t\tbody: new URLSearchParams({ secs: target.toFixed(1) }),\n\t\t\t\t\t\t});\n\t\t\t\t\t\ttick();\n\t\t\t\t\t} catch (e) { /* ignore */ }\n\t\t\t\t});\n\t\t\t});\n\n\t\t\ttick();\n\t\t\tsetInterval(tick, 1000);\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div><!-- Sortable.js: lightweight drag library, works on touch devices. --><script src=\"https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js\"></script><script>\n\t\tfunction queueSortable() {\n\t\t\treturn {\n\t\t\t\tinit(el) {\n\t\t\t\t\tSortable.create(el, {\n\t\t\t\t\t\tanimation: 150,\n\t\t\t\t\t\thandle: '.queue-handle',\n\t\t\t\t\t\tonEnd: (e) => {\n\t\t\t\t\t\t\tif (e.oldIndex === e.newIndex) return;\n\t\t\t\t\t\t\tfetch('/api/queue/reorder', {\n\t\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\t\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n\t\t\t\t\t\t\t\tbody: new URLSearchParams({ from: e.oldIndex, to: e.newIndex }),\n\t\t\t\t\t\t\t}).then(() => window.location.reload());\n\t\t\t\t\t\t},\n\t\t\t\t\t});\n\t\t\t\t},\n\t\t\t};\n\t\t}\n\t</script><!-- Live transport: poll /api/status every 1s + click-to-seek bar. --><script>\n\t\t(function () {\n\t\t\tlet lastDuration = 0;\n\t\t\tlet lastFile = null;\n\n\t\t\tfunction fmtTime(s) {\n\t\t\t\tif (!isFinite(s) || s < 0) s = 0;\n\t\t\t\tconst m = Math.floor(s / 60);\n\t\t\t\tconst r = Math.floor(s % 60);\n\t\t\t\treturn m + ':' + (r < 10 ? '0' : '') + r;\n\t\t\t}\n\t\t\tasync function tick() {\n\t\t\t\ttry {\n\t\t\t\t\tconst res = await fetch('/api/status', { headers: { 'Accept': 'application/json' } });\n\t\t\t\t\tif (!res.ok) return;\n\t\t\t\t\tconst s = await res.json();\n\t\t\t\t\tdocument.getElementById('live-position').textContent = fmtTime(s.position_secs);\n\t\t\t\t\tdocument.getElementById('live-duration').textContent = fmtTime(s.duration_secs);\n\t\t\t\t\tdocument.getElementById('live-mode').textContent = s.mode || '—';\n\t\t\t\t\tdocument.getElementById('live-paused').style.display = s.paused ? '' : 'none';\n\t\t\t\t\tlastDuration = s.duration_secs || 0;\n\t\t\t\t\tconst pct = lastDuration > 0 ? Math.max(0, Math.min(100, 100 * s.position_secs / lastDuration)) : 0;\n\t\t\t\t\tdocument.getElementById('seek-fill').style.width = pct + '%';\n\t\t\t\t\t// File change: swap the video src in place (no page reload).\n\t\t\t\t\t// Cache-bust with a query param so the browser refetches.\n\t\t\t\t\tconst v = document.getElementById('now-video');\n\t\t\t\t\tif (lastFile !== null && s.now_filename && s.now_filename !== lastFile) {\n\t\t\t\t\t\tif (v) {\n\t\t\t\t\t\t\tv.src = '/api/now/preview?t=' + Date.now();\n\t\t\t\t\t\t\tv.load();\n\t\t\t\t\t\t\t// Match mpv's pause/play state on the new file.\n\t\t\t\t\t\t\tif (!s.paused) v.play().catch(function(){});\n\t\t\t\t\t\t}\n\t\t\t\t\t\tconst title = document.querySelector('[data-testid=\"now-playing\"]');\n\t\t\t\t\t\tif (title && s.now_filename) {\n\t\t\t\t\t\t\ttitle.textContent = s.now_title || s.now_filename;\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t\tlastFile = s.now_filename;\n\t\t\t\t\t// Mirror mpv pause/play state onto the preview <video>.\n\t\t\t\t\t// Without this, the preview keeps streaming when staff\n\t\t\t\t\t// pauses the TV (and vice versa), which made the controls\n\t\t\t\t\t// feel disconnected.\n\t\t\t\t\tif (v && v.readyState >= 2) {\n\t\t\t\t\t\tif (s.paused && !v.paused) {\n\t\t\t\t\t\t\tv.pause();\n\t\t\t\t\t\t} else if (!s.paused && v.paused) {\n\t\t\t\t\t\t\tv.play().catch(function(){});\n\t\t\t\t\t\t}\n\t\t\t\t\t\t// Resync currentTime if the preview has drifted more\n\t\t\t\t\t\t// than 2s from mpv (user scrubbed the preview, or\n\t\t\t\t\t\t// network buffered ahead). Threshold is wide enough\n\t\t\t\t\t\t// that decoder jitter doesn't cause visible jumps.\n\t\t\t\t\t\tif (lastDuration > 0 && Math.abs(v.currentTime - s.position_secs) > 2) {\n\t\t\t\t\t\t\ttry { v.currentTime = s.position_secs; } catch (e) {}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t} catch (e) { /* network blip; try again next tick */ }\n\t\t\t}\n\n\t\t\t// Click-to-seek on the bar.\n\t\t\tconst bar = document.getElementById('seek-bar');\n\t\t\tif (bar) {\n\t\t\t\tbar.addEventListener('click', function (ev) {\n\t\t\t\t\tif (!lastDuration) return;\n\t\t\t\t\tconst rect = bar.getBoundingClientRect();\n\t\t\t\t\tconst ratio = (ev.clientX - rect.left) / rect.width;\n\t\t\t\t\tconst target = Math.max(0, ratio * lastDuration);\n\t\t\t\t\tfetch('/api/seek', {\n\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n\t\t\t\t\t\tbody: new URLSearchParams({ secs: target.toFixed(1) }),\n\t\t\t\t\t}).then(tick);\n\t\t\t\t});\n\t\t\t}\n\n\t\t\t// Relative-seek buttons: ±10s / ±30s.\n\t\t\tdocument.querySelectorAll('button[data-seek]').forEach(function (btn) {\n\t\t\t\tbtn.addEventListener('click', async function () {\n\t\t\t\t\tconst delta = parseFloat(btn.dataset.seek || '0');\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/status').then(r => r.json());\n\t\t\t\t\t\tconst target = Math.max(0, (r.position_secs || 0) + delta);\n\t\t\t\t\t\tawait fetch('/api/seek', {\n\t\t\t\t\t\t\tmethod: 'POST',\n\t\t\t\t\t\t\theaders: { 'Content-Type': 'application/x-www-form-urlencoded' },\n\t\t\t\t\t\t\tbody: new URLSearchParams({ secs: target.toFixed(1) }),\n\t\t\t\t\t\t});\n\t\t\t\t\t\ttick();\n\t\t\t\t\t} catch (e) { /* ignore */ }\n\t\t\t\t});\n\t\t\t});\n\n\t\t\ttick();\n\t\t\tsetInterval(tick, 1000);\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -453,226 +488,226 @@ func QueueRowView(row QueueRow) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var20 == nil {
-			templ_7745c5c3_Var20 = templ.NopComponent
+		templ_7745c5c3_Var21 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var21 == nil {
+			templ_7745c5c3_Var21 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var21 = []any{"flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm",
+		var templ_7745c5c3_Var22 = []any{"flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm",
 			templ.KV("border-amber-300 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-950/20", row.IsCommercial),
 			templ.KV("border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/40", !row.IsCommercial)}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var21...)
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var22...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<li class=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var22 string
-		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var21).String())
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 1, Col: 0}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" data-testid=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<li class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var23 string
-		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue("queue-row-" + strconv.Itoa(row.Index))
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var22).String())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 337, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 1, Col: 0}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\" data-index=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\" data-testid=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var24 string
-		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(row.Index))
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue("queue-row-" + strconv.Itoa(row.Index))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 338, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 401, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"><button class=\"queue-handle cursor-grab select-none text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200\" title=\"Drag to reorder\" aria-label=\"Drag handle\">⋮⋮</button><div class=\"min-w-0 flex-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\" data-index=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var25 string
+		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(row.Index))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 402, Col: 38}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\"><button class=\"queue-handle cursor-grab select-none text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200\" title=\"Drag to reorder\" aria-label=\"Drag handle\">⋮⋮</button><div class=\"min-w-0 flex-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if row.IsCommercial {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<p class=\"font-mono text-xs\"><span class=\"rounded bg-amber-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300\">break</span> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(row.Label)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 347, Col: 179}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</p>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<p class=\"truncate font-mono text-xs text-zinc-700 dark:text-zinc-200\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<p class=\"font-mono text-xs\"><span class=\"rounded bg-amber-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300\">break</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(row.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 349, Col: 86}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 411, Col: 179}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<p class=\"truncate font-mono text-xs text-zinc-700 dark:text-zinc-200\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var27 string
+			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(row.Label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 413, Col: 86}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<p class=\"font-mono text-[11px] text-zinc-500\">~")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<p class=\"font-mono text-[11px] text-zinc-500\">~")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var27 string
-		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(fmtSecs(row.EstSecs))
+		var templ_7745c5c3_Var28 string
+		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(fmtSecs(row.EstSecs))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 352, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 416, Col: 27}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, " ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, " ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if !row.IsCommercial && row.CompletedCount > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "· watched ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "· watched ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var28 string
-			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(row.CompletedCount))
+			var templ_7745c5c3_Var29 string
+			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(row.CompletedCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 354, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 418, Col: 50}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "× ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "× ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if row.PlayCount > row.CompletedCount {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<span class=\"text-zinc-400 dark:text-zinc-500\">(started ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<span class=\"text-zinc-400 dark:text-zinc-500\">(started ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var29 string
-				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(row.PlayCount))
+				var templ_7745c5c3_Var30 string
+				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(row.PlayCount))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 356, Col: 91}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 420, Col: 91}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, ")</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, ")</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		} else if !row.IsCommercial && row.PlayCount > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "· started ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "· started ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var30 string
-			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(row.PlayCount))
+			var templ_7745c5c3_Var31 string
+			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(row.PlayCount))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 359, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 423, Col: 45}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "×")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "×")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</p></div><form method=\"POST\" action=\"/api/queue/remove\" hx-post=\"/api/queue/remove\" hx-on::after-request=\"window.location.reload()\" class=\"inline-flex\"><input type=\"hidden\" name=\"index\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</p></div><form method=\"POST\" action=\"/api/queue/remove\" hx-post=\"/api/queue/remove\" hx-on::after-request=\"window.location.reload()\" class=\"inline-flex\"><input type=\"hidden\" name=\"index\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var31 string
-		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(row.Index))
+		var templ_7745c5c3_Var32 string
+		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(row.Index))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 364, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 428, Col: 68}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if row.IsCommercial {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<button class=\"btn btn-ghost btn-sm\" data-testid=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var32 string
-			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue("btn-skip-commercial-" + strconv.Itoa(row.Index))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 366, Col: 103}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\" title=\"Skip this commercial\">Skip</button>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<button class=\"btn btn-ghost btn-sm\" data-testid=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<button class=\"btn btn-ghost btn-sm\" data-testid=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var33 string
-			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue("btn-remove-episode-" + strconv.Itoa(row.Index))
+			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue("btn-skip-commercial-" + strconv.Itoa(row.Index))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 368, Col: 102}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 430, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\" title=\"Remove from queue\">✕</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\" title=\"Skip this commercial\">Skip</button>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<button class=\"btn btn-ghost btn-sm\" data-testid=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var34 string
+			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue("btn-remove-episode-" + strconv.Itoa(row.Index))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/dashboard.templ`, Line: 432, Col: 102}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\" title=\"Remove from queue\">✕</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</form></li>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</form></li>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

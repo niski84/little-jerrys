@@ -47,6 +47,10 @@ type Player interface {
 	// seconds, looping forever. Used during off-hours when the schedule
 	// says "no episodes" — the TV shows fan art instead.
 	PlaySlideshow(paths []string, secsPer int) error
+	// ShowOSD renders a text message as an on-screen overlay for dur.
+	// Used for maintenance announcements (e.g. "restarting in 10 min").
+	// Silently no-ops if the IPC socket is unavailable.
+	ShowOSD(message string, dur time.Duration) error
 	Close() error
 }
 
@@ -466,6 +470,15 @@ func (p *mpvPlayer) Status() Status {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return Status{NowPlaying: p.current, Paused: p.paused}
+}
+
+func (p *mpvPlayer) ShowOSD(message string, dur time.Duration) error {
+	ms := int(dur.Milliseconds())
+	if ms <= 0 {
+		ms = 5000
+	}
+	// mpv show-text: text, duration_ms, level (omit level → default)
+	return p.command("show-text", message, ms)
 }
 
 func (p *mpvPlayer) Close() error {

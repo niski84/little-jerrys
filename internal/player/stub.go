@@ -118,6 +118,11 @@ func (s *Stub) PlaySlideshow(paths []string, secsPer int) error {
 	return nil
 }
 
+func (s *Stub) ShowOSD(message string, dur time.Duration) error {
+	fmt.Printf("[player:stub] OSD (%s): %s\n", dur.Round(time.Second), message)
+	return nil
+}
+
 func (s *Stub) Close() error { return nil }
 
 // OnEndFile is a no-op on the stub. Tests that need to simulate

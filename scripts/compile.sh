@@ -20,6 +20,7 @@ if [ -f package.json ]; then
   npm run --silent build:css
 fi
 
-echo "→ go build…"
-go build -o little-jerrys ./cmd/little-jerrys
+VERSION="${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo v0.0.0-dev)}"
+echo "→ go build (version=$VERSION)…"
+go build -ldflags="-X main.Version=${VERSION}" -o little-jerrys ./cmd/little-jerrys
 echo "Build OK: $PROJECT_DIR/little-jerrys"

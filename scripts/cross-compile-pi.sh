@@ -31,9 +31,11 @@ if [[ -f package.json ]]; then
   npm run --silent build:css
 fi
 
-echo "→ go build linux/arm64 -tags pi…"
+VERSION="${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo v0.0.0-dev)}"
+echo "→ go build linux/arm64 -tags pi (version=$VERSION)…"
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-  go build -tags pi -trimpath -ldflags='-s -w' \
+  go build -tags pi -trimpath \
+  -ldflags="-s -w -X main.Version=${VERSION}" \
   -o build/jerry-arm64 ./cmd/little-jerrys
 
 ls -lh build/jerry-arm64
