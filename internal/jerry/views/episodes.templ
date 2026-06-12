@@ -1,0 +1,267 @@
+package views
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/niski84/sienfeld_smash_deck/internal/tmdb"
+)
+
+// EpisodesVM is the browse UI's view model.
+type EpisodesVM struct {
+	Show          *tmdb.Show
+	SeasonNumbers []int
+	ActiveSeason  *tmdb.Season // nil when no season selected
+	ActiveEpisode *tmdb.Episode // nil when no episode highlighted
+	StillURL      string        // for ActiveEpisode, if cached
+	AddToPlaylist *AddToPlaylistVM // shown on detail panel when episode highlighted
+
+	// Per-episode controls — surface weight + block toggle on the detail
+	// panel. Both keyed by SNNENN under the hood; the user just sees an
+	// "Episode" identity.
+	ActiveWeight  int  // 1 = default, 2+ = bumped
+	ActiveBlocked bool
+
+	// Modification stats for the header + per-season tab badges.
+	Summary       SeasonModSummary
+	SeasonStats   map[int]SeasonModSummary // by season number
+	SummaryDetail []EpisodeModRef          // expanded list (overall)
+	Locked        bool
+}
+
+// SeasonModSummary is a per-season (or overall) tally of weight/block
+// changes from defaults.
+type SeasonModSummary struct {
+	Weighted int
+	Blocked  int
+}
+
+// EpisodeModRef is one row in the "what's been modified" expanded list.
+type EpisodeModRef struct {
+	Season   int
+	Episode  int
+	Title    string
+	Weight   int  // 0/1 = default
+	Blocked  bool
+}
+
+templ Episodes(vm EpisodesVM) {
+	@Layout("Little Jerry's — Episode Guide", episodesBody(vm))
+}
+
+templ episodesBody(vm EpisodesVM) {
+	<div class="grid grid-cols-1 gap-6">
+		@episodesHeader(vm)
+		@episodesSeasonTabs(vm)
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-[16rem_1fr]">
+			@episodesList(vm)
+			@episodesDetail(vm)
+		</div>
+	</div>
+}
+
+templ episodesHeader(vm EpisodesVM) {
+	<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55">
+		<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Episode Guide</p>
+		<h1 class="mt-2 display-title text-3xl text-amber-500 dark:text-amber-400">{ vm.Show.Name }</h1>
+		<p class="mt-1 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+			{ strconv.Itoa(vm.Show.NumSeasons) } seasons · { strconv.Itoa(vm.Show.NumEpisodes) } episodes · first aired { vm.Show.FirstAirDate }
+		</p>
+		if vm.Summary.Weighted > 0 || vm.Summary.Blocked > 0 {
+			<details class="mt-4 rounded-md border border-amber-300 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-950/20" data-testid="overall-summary">
+				<summary class="cursor-pointer px-4 py-2 text-sm">
+					<span class="font-mono text-[11px] uppercase tracking-wider text-amber-700 dark:text-amber-300">Modified from defaults</span>
+					<span class="ml-2 font-semibold">{ strconv.Itoa(vm.Summary.Weighted) } weighted · { strconv.Itoa(vm.Summary.Blocked) } blocked</span>
+					<span class="ml-2 text-xs text-zinc-500 dark:text-zinc-400">click to expand</span>
+				</summary>
+				<ul class="space-y-1 px-4 pb-3 pt-1 font-mono text-xs">
+					for _, ep := range vm.SummaryDetail {
+						<li class="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-amber-100 dark:hover:bg-amber-500/10">
+							<a href={ templ.SafeURL(fmt.Sprintf("/episodes/%d/%d", ep.Season, ep.Episode)) } class="flex-1 truncate text-zinc-800 hover:text-amber-700 dark:text-zinc-200 dark:hover:text-amber-300">
+								<span class="text-amber-600 dark:text-amber-400">{ fmt.Sprintf("S%02dE%02d", ep.Season, ep.Episode) }</span>
+								<span class="ml-2">{ ep.Title }</span>
+							</a>
+							<span class="shrink-0">
+								if ep.Blocked {
+									<span class="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] uppercase text-rose-700 dark:text-rose-300">blocked</span>
+								}
+								if ep.Weight > 1 {
+									<span class="ml-1 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] uppercase text-emerald-700 dark:text-emerald-300">×{ strconv.Itoa(ep.Weight) }</span>
+								}
+							</span>
+						</li>
+					}
+				</ul>
+			</details>
+		}
+	</section>
+}
+
+templ episodesSeasonTabs(vm EpisodesVM) {
+	<nav class="flex flex-wrap gap-2" data-testid="season-tabs">
+		for _, n := range vm.SeasonNumbers {
+			if vm.ActiveSeason != nil && vm.ActiveSeason.SeasonNumber == n {
+				<a href={ templ.SafeURL(fmt.Sprintf("/episodes/%d", n)) } class="relative rounded-md border-2 border-amber-500 bg-amber-500 px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-black" data-testid={ "season-tab-active-" + strconv.Itoa(n) }>
+					S{ strconv.Itoa(n) }
+					@seasonModBadge(vm.SeasonStats[n])
+				</a>
+			} else {
+				<a href={ templ.SafeURL(fmt.Sprintf("/episodes/%d", n)) } class="relative rounded-md border-2 border-zinc-300 bg-white px-4 py-2 font-mono text-xs font-bold uppercase tracking-wider text-zinc-700 hover:border-amber-500 hover:text-amber-600 dark:border-white/20 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-amber-400 dark:hover:text-amber-400" data-testid={ "season-tab-" + strconv.Itoa(n) }>
+					S{ strconv.Itoa(n) }
+					@seasonModBadge(vm.SeasonStats[n])
+				</a>
+			}
+		}
+	</nav>
+}
+
+// seasonModBadge surfaces a small "(M modified)" pill on a season tab when
+// any episode in that season has a non-default weight or is blocked.
+templ seasonModBadge(st SeasonModSummary) {
+	if st.Weighted+st.Blocked > 0 {
+		<span class="ml-1 rounded-full bg-zinc-900/80 px-1.5 py-0 text-[9px] font-bold text-amber-300" title={ fmt.Sprintf("%d weighted, %d blocked", st.Weighted, st.Blocked) }>{ strconv.Itoa(st.Weighted + st.Blocked) }</span>
+	}
+}
+
+templ episodesList(vm EpisodesVM) {
+	<aside class="rounded-2xl border border-zinc-200 bg-white/85 p-4 dark:border-white/10 dark:bg-zinc-900/55" data-testid="episodes-list">
+		if vm.ActiveSeason != nil {
+			<p class="px-2 pb-2 font-mono text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Season { strconv.Itoa(vm.ActiveSeason.SeasonNumber) } · { strconv.Itoa(len(vm.ActiveSeason.Episodes)) } episodes</p>
+			<ol class="space-y-1">
+				for _, ep := range vm.ActiveSeason.Episodes {
+					if vm.ActiveEpisode != nil && vm.ActiveEpisode.EpisodeNumber == ep.EpisodeNumber {
+						<li>
+							<a href={ templ.SafeURL(fmt.Sprintf("/episodes/%d/%d", ep.SeasonNumber, ep.EpisodeNumber)) } class="block rounded-md bg-amber-500/15 px-3 py-2 text-sm font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-200" data-testid={ "ep-row-active-" + strconv.Itoa(ep.EpisodeNumber) }>
+								<span class="mr-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{ episodeNum(ep) }</span>
+								{ ep.Name }
+							</a>
+						</li>
+					} else {
+						<li>
+							<a href={ templ.SafeURL(fmt.Sprintf("/episodes/%d/%d", ep.SeasonNumber, ep.EpisodeNumber)) } class="block rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-amber-600 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-amber-400" data-testid={ "ep-row-" + strconv.Itoa(ep.EpisodeNumber) }>
+								<span class="mr-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-500">{ episodeNum(ep) }</span>
+								{ ep.Name }
+							</a>
+						</li>
+					}
+				}
+			</ol>
+		}
+	</aside>
+}
+
+templ episodesDetail(vm EpisodesVM) {
+	<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55" data-testid="episode-detail">
+		if vm.ActiveEpisode == nil {
+			<p class="text-sm text-zinc-500 dark:text-zinc-400">Highlight an episode in the list to see details.</p>
+		} else {
+			<div class="grid grid-cols-1 gap-6 md:grid-cols-[18rem_1fr]">
+				<div class="aspect-video w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-white/10 dark:bg-zinc-950 md:w-72">
+					if vm.StillURL != "" {
+						<img src={ vm.StillURL } alt={ vm.ActiveEpisode.Name } class="h-full w-full object-cover" data-testid="episode-still"/>
+					} else {
+						<div class="flex h-full items-center justify-center font-mono text-xs text-zinc-400 dark:text-zinc-600" data-testid="episode-still-missing">no still cached</div>
+					}
+				</div>
+				<div class="min-w-0">
+					<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">{ episodeNum(*vm.ActiveEpisode) }</p>
+					<h2 class="mt-1 serif-title text-2xl" data-testid="episode-title">{ vm.ActiveEpisode.Name }</h2>
+					<p class="mt-1 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+						aired { vm.ActiveEpisode.AirDate }
+						if vm.ActiveEpisode.Runtime > 0 {
+							· { strconv.Itoa(vm.ActiveEpisode.Runtime) } min
+						}
+						if vm.ActiveEpisode.VoteAverage > 0 {
+							· { fmt.Sprintf("%.1f / 10", vm.ActiveEpisode.VoteAverage) } TMDB
+						}
+					</p>
+					if vm.ActiveEpisode.Overview != "" {
+						<p class="mt-4 text-sm leading-relaxed text-zinc-700 dark:text-zinc-200" data-testid="episode-overview">{ vm.ActiveEpisode.Overview }</p>
+					} else {
+						<p class="mt-4 text-sm italic text-zinc-500 dark:text-zinc-500">no synopsis cached</p>
+					}
+				</div>
+			</div>
+
+			<!-- Controls row: full-width below the image+meta grid so each card has room to breathe. -->
+			<div class="mt-6 grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="episode-control-bar">
+				@episodeWeightCard(vm)
+				@episodeBlockCard(vm)
+				if vm.AddToPlaylist != nil {
+					@episodeAddToPlaylistCard(*vm.AddToPlaylist)
+				}
+			</div>
+		}
+	</section>
+}
+
+// Three side-by-side control cards on the episode detail row. Each fills
+// its own column (md:grid-cols-3 in the parent), so dropdowns and buttons
+// have room to breathe instead of getting squeezed inside the meta column.
+
+templ episodeWeightCard(vm EpisodesVM) {
+	<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/episodes/%d/%d/weight", vm.ActiveEpisode.SeasonNumber, vm.ActiveEpisode.EpisodeNumber)) } class="flex h-full flex-col rounded-md border border-zinc-200 bg-white/85 p-4 dark:border-white/10 dark:bg-zinc-950/50">
+		<p class="font-mono text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400">Rotation weight</p>
+		<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+			<select name="weight" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-950 sm:flex-1" data-testid="weight-select">
+				@weightOption(1, vm.ActiveWeight, "1 — default")
+				@weightOption(2, vm.ActiveWeight, "2 — slight bump")
+				@weightOption(3, vm.ActiveWeight, "3 — favorite")
+				@weightOption(5, vm.ActiveWeight, "5 — staff pick")
+				@weightOption(10, vm.ActiveWeight, "10 — heavy rotation")
+			</select>
+			<button class="btn btn-sm shrink-0" disabled?={ vm.Locked } data-testid="weight-save">Save</button>
+		</div>
+		<p class="mt-3 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Higher weight = plays more often in random rotation.</p>
+	</form>
+}
+
+templ episodeBlockCard(vm EpisodesVM) {
+	<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/episodes/%d/%d/blocked", vm.ActiveEpisode.SeasonNumber, vm.ActiveEpisode.EpisodeNumber)) } class="flex h-full flex-col rounded-md border border-zinc-200 bg-white/85 p-4 dark:border-white/10 dark:bg-zinc-950/50">
+		<p class="font-mono text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400">No Soup For You</p>
+		<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+			if vm.ActiveBlocked {
+				<span class="inline-flex items-center justify-center rounded bg-rose-500/15 px-2 py-2 text-xs font-bold text-rose-700 dark:text-rose-300 sm:flex-1" data-testid="blocked-badge">BLOCKED</span>
+				<button class="btn btn-sm btn-warning shrink-0" disabled?={ vm.Locked } data-testid="block-toggle">Allow back in</button>
+			} else {
+				<span class="inline-flex items-center justify-center rounded bg-emerald-500/15 px-2 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 sm:flex-1">in rotation</span>
+				<button class="btn btn-sm shrink-0" disabled?={ vm.Locked } data-testid="block-toggle">Block</button>
+			}
+		</div>
+		<p class="mt-3 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Pull this episode out of rotation entirely.</p>
+	</form>
+}
+
+templ episodeAddToPlaylistCard(vm AddToPlaylistVM) {
+	<div class="flex h-full flex-col rounded-md border border-zinc-200 bg-white/85 p-4 dark:border-white/10 dark:bg-zinc-950/50" data-testid="add-to-playlist">
+		<p class="font-mono text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400">Add to playlist</p>
+		if len(vm.Playlists) == 0 {
+			<p class="mt-3 text-xs text-zinc-600 dark:text-zinc-300">No playlists yet — <a href="/playlists" class="text-amber-700 hover:underline dark:text-amber-300">create one</a>.</p>
+		} else {
+			<form method="POST" action="/playlists/add-episode" class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+				<input type="hidden" name="season" value={ strconv.Itoa(vm.Season) }/>
+				<input type="hidden" name="episode" value={ strconv.Itoa(vm.Episode) }/>
+				<select name="playlist_id" class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-950 sm:flex-1" data-testid="add-to-playlist-select">
+					for _, p := range vm.Playlists {
+						<option value={ p.ID }>{ p.Name }</option>
+					}
+				</select>
+				<button class="btn btn-sm shrink-0" disabled?={ vm.Locked } data-testid="add-to-playlist-submit">Add</button>
+			</form>
+		}
+		<p class="mt-3 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">Builds a curated lineup you can play anytime.</p>
+	</div>
+}
+
+templ weightOption(val, current int, label string) {
+	if val == current || (val == 1 && current <= 1) {
+		<option value={ strconv.Itoa(val) } selected>{ label }</option>
+	} else {
+		<option value={ strconv.Itoa(val) }>{ label }</option>
+	}
+}
+
+// episodeNum formats an episode reference as "S02E11".
+func episodeNum(ep tmdb.Episode) string {
+	return fmt.Sprintf("S%02dE%02d", ep.SeasonNumber, ep.EpisodeNumber)
+}

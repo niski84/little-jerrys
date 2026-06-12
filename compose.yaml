@@ -1,0 +1,38 @@
+# Pi-parity dev setup. Brings up the appliance in a container that closely
+# mirrors what the binary will run inside on the Pi (Debian Bookworm + mpv +
+# Xvfb). Connect via:
+#
+#   - Web UI: http://localhost:8089
+#   - VNC into mpv output: vnc://localhost:5900 (no password)
+#
+# Run with: podman-compose up --build
+# Or:       docker compose up --build
+#
+# Drop episodes/commercials into ./compose-data/media on the host. They show
+# up at /media/usb inside the container and the playlist engine picks them up
+# on the next scan / regenerate.
+
+services:
+  jerry:
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: little-jerrys
+    ports:
+      - "8089:8089"   # web UI
+      - "5901:5900"   # VNC (host 5901 → container 5900; host 5900 often taken)
+    volumes:
+      - ./compose-data/media:/media/usb:rw
+      - jerry-state:/var/lib/jerry
+    environment:
+      JERRY_RESCUE_PASSWORD: jerry-rescue
+      JERRY_MPV_AO: "null"
+      JERRY_MPV_VO: "x11"
+      # Uncomment to point episode metadata at TMDB (when integration lands).
+      # JERRY_TMDB_API_KEY: "your-key-here"
+    restart: unless-stopped
+    # nmcli isn't available in the container — that's fine, the network admin
+    # page degrades to "unavailable" and shows the LAN IPs anyway.
+
+volumes:
+  jerry-state:

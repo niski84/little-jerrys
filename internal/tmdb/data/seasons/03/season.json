@@ -1,0 +1,263 @@
+{
+  "id": 3631,
+  "name": "Season 3",
+  "overview": "",
+  "season_number": 3,
+  "air_date": "1991-09-18",
+  "poster_path": "/g8yIsI4xVBk2eZHHQtOfG5jWF8b.jpg",
+  "episodes": [
+    {
+      "id": 63121,
+      "name": "The Note",
+      "overview": "Physical therapy proves painful as Jerry has a misunderstanding with his therapist; and he finds a way for insurance to cover treatment for Elaine and a paranoid George.",
+      "episode_number": 1,
+      "season_number": 3,
+      "air_date": "1991-09-18",
+      "still_path": "/loz1prb3Edvq4q9kbp2MZgyj2Fb.jpg",
+      "runtime": 23,
+      "vote_average": 7.1
+    },
+    {
+      "id": 63122,
+      "name": "The Truth",
+      "overview": "George's relationship with a former IRS worker eases Jerry's tax worries--until she becomes George's former relationship; Kramer sees too much of Elaine while seeing her roommate.",
+      "episode_number": 2,
+      "season_number": 3,
+      "air_date": "1991-09-25",
+      "still_path": "/4yyLv8dAM9fANnUPFsz1TqU5rbG.jpg",
+      "runtime": 23,
+      "vote_average": 7.6
+    },
+    {
+      "id": 63123,
+      "name": "The Pen",
+      "overview": "Elaine regrets accompanying Jerry on a visit to his parents, where local gossip includes how Jerry acquired a pen that writes upside down.",
+      "episode_number": 3,
+      "season_number": 3,
+      "air_date": "1991-10-02",
+      "still_path": "/eLZeYFfxDblM6ynFP9byqUGhVO0.jpg",
+      "runtime": 23,
+      "vote_average": 7.7
+    },
+    {
+      "id": 63124,
+      "name": "The Dog",
+      "overview": "Jerry's gig as a dog sitter provides some time alone to George and Elaine, who find they have little to say.",
+      "episode_number": 4,
+      "season_number": 3,
+      "air_date": "1991-10-09",
+      "still_path": "/gAJgORJBKH6bCIxQ3Rfibv2mprs.jpg",
+      "runtime": 23,
+      "vote_average": 7.118
+    },
+    {
+      "id": 63125,
+      "name": "The Library",
+      "overview": "A library cop says Jerry is 20 years overdue with a steamy novel.",
+      "episode_number": 5,
+      "season_number": 3,
+      "air_date": "1991-10-16",
+      "still_path": "/32ssQWunXuNJxpgwVAArV2PXAcC.jpg",
+      "runtime": 23,
+      "vote_average": 8.2
+    },
+    {
+      "id": 63126,
+      "name": "The Parking Garage",
+      "overview": "Saturday at the mall with the gang, none of whom bothered to note where the car was parked.",
+      "episode_number": 6,
+      "season_number": 3,
+      "air_date": "1991-10-30",
+      "still_path": "/ll6qKRR4lQbCcIVGUr7Q0S7gBpC.jpg",
+      "runtime": 23,
+      "vote_average": 8.2
+    },
+    {
+      "id": 63127,
+      "name": "The Cafe",
+      "overview": "While Jerry tries to help a cafe owner, Elaine tries to help George with an IQ test, and Kramer...well, nobody can help Kramer.",
+      "episode_number": 7,
+      "season_number": 3,
+      "air_date": "1991-11-06",
+      "still_path": "/w2ITewmpbxPPjkM1CkE4IiLI9IV.jpg",
+      "runtime": 23,
+      "vote_average": 7.7
+    },
+    {
+      "id": 63128,
+      "name": "The Tape",
+      "overview": "George is hot for a potential baldness remedy, and for Elaine after she plays a joke on Jerry.",
+      "episode_number": 8,
+      "season_number": 3,
+      "air_date": "1991-11-13",
+      "still_path": "/r6cIm9gAoySQictBcevaGj70LBf.jpg",
+      "runtime": 23,
+      "vote_average": 8.4
+    },
+    {
+      "id": 63129,
+      "name": "The Nose Job",
+      "overview": "Kramer is the catalyst for George to urge his otherwise wonderful girlfriend to get a nose job, while Jerry dates a beauty whose brain is a beaut.",
+      "episode_number": 9,
+      "season_number": 3,
+      "air_date": "1991-11-20",
+      "still_path": "/dxQYFxchrcjpuUJQIwJOokZHUmb.jpg",
+      "runtime": 23,
+      "vote_average": 7.6
+    },
+    {
+      "id": 63130,
+      "name": "The Stranded",
+      "overview": "Jerry pays a high price for being stranded at a party by George, who pays the price for romance in the workplace but forgets to pay for something else.",
+      "episode_number": 10,
+      "season_number": 3,
+      "air_date": "1991-11-27",
+      "still_path": "/aXwhqjNxpXskBDlaS0QnfRtwzPK.jpg",
+      "runtime": 23,
+      "vote_average": 7.469
+    },
+    {
+      "id": 63131,
+      "name": "The Alternate Side",
+      "overview": "Jerry gets his car stolen; Kramer gets a line in a Woody Allen film; George gets a job; and Elaine gets tired of her boyfriend.",
+      "episode_number": 11,
+      "season_number": 3,
+      "air_date": "1991-12-04",
+      "still_path": "/p7eW8RnmvkJoA72jfFHqlnfxojv.jpg",
+      "runtime": 23,
+      "vote_average": 7.7
+    },
+    {
+      "id": 63132,
+      "name": "The Red Dot",
+      "overview": "An imperfection mars George's gift to Elaine; Jerry inadvertently helps an alcoholic go off the wagon.",
+      "episode_number": 12,
+      "season_number": 3,
+      "air_date": "1991-12-11",
+      "still_path": "/yLE8JX4iWeQTK73GaXY0QrDRVZS.jpg",
+      "runtime": 23,
+      "vote_average": 7.9
+    },
+    {
+      "id": 63133,
+      "name": "The Subway",
+      "overview": "A beauty picks up George; Jerry makes friends with a naked guy; Kramer is tipped off about a hot horse; Elaine gets stuck en route to a lesbian wedding.",
+      "episode_number": 13,
+      "season_number": 3,
+      "air_date": "1992-01-08",
+      "still_path": "/lhtR7820fZJ25GiqkghGXLjSq1v.jpg",
+      "runtime": 23,
+      "vote_average": 7.8
+    },
+    {
+      "id": 63134,
+      "name": "The Pez Dispenser",
+      "overview": "Kramer's advice gives George \"the upper hand\" in his relationship with a pianist, whose recital is ruined by Elaine's outburst of laughter.",
+      "episode_number": 14,
+      "season_number": 3,
+      "air_date": "1992-01-15",
+      "still_path": "/rYZwwDRRJiMoyS0S8pFnLmbhRYv.jpg",
+      "runtime": 24,
+      "vote_average": 8
+    },
+    {
+      "id": 63135,
+      "name": "The Suicide",
+      "overview": "A psychic warns George to cancel his vacation; Jerry is hit on by his neighbor's girl after the neighbor's suicide attempt; Elaine fasts.",
+      "episode_number": 15,
+      "season_number": 3,
+      "air_date": "1992-01-29",
+      "still_path": "/U9GxvmRUF30pcORWt0stdWhAp9.jpg",
+      "runtime": 24,
+      "vote_average": 7.452
+    },
+    {
+      "id": 63136,
+      "name": "The Fix-Up",
+      "overview": "Jerry and Elaine fix up George with Elaine's friend--then wait nervously.",
+      "episode_number": 16,
+      "season_number": 3,
+      "air_date": "1992-02-05",
+      "still_path": "/bnQCdvBY7iND6D8eqSM5GN7ujmM.jpg",
+      "runtime": 24,
+      "vote_average": 8.167
+    },
+    {
+      "id": 63137,
+      "name": "The Boyfriend (1)",
+      "overview": "Jerry becomes friends with baseball's Keith Hernandez, who has a history with Kramer and would like a future with Elaine.",
+      "episode_number": 17,
+      "season_number": 3,
+      "air_date": "1992-02-12",
+      "still_path": "/e2VG962SbDfSHhVO36Du2zwvduw.jpg",
+      "runtime": 24,
+      "vote_average": 8.1
+    },
+    {
+      "id": 63138,
+      "name": "The Boyfriend (2)",
+      "overview": "Jerry and Elaine compete for the attention of baseball's Keith Hernandez, while Kramer and Newman investigate a spitting incident involving Hernandez.",
+      "episode_number": 18,
+      "season_number": 3,
+      "air_date": "1992-02-12",
+      "still_path": "/wEf06gmg5jb8anj0dpTiwvFNbFQ.jpg",
+      "runtime": 24,
+      "vote_average": 7.5
+    },
+    {
+      "id": 63139,
+      "name": "The Limo",
+      "overview": "Jerry and George take a limo meant for another, whose agenda includes more than just getting in from the airport.",
+      "episode_number": 19,
+      "season_number": 3,
+      "air_date": "1992-02-26",
+      "still_path": "/kS3PRb255AVBxGRvSoPC7BYdjRn.jpg",
+      "runtime": 24,
+      "vote_average": 8.486
+    },
+    {
+      "id": 63140,
+      "name": "The Good Samaritan",
+      "overview": "Jerry witnesses an accident--and is attracted to the victim and the perpetrator.",
+      "episode_number": 20,
+      "season_number": 3,
+      "air_date": "1992-03-04",
+      "still_path": "/lLst66uOgHfVf22rrYvQZv1VIK4.jpg",
+      "runtime": 24,
+      "vote_average": 7.419
+    },
+    {
+      "id": 63141,
+      "name": "The Letter",
+      "overview": "Kramer sits for Jerry's artist girlfriend, but Jerry won't stand for her temperament, until she declares her feelings.",
+      "episode_number": 21,
+      "season_number": 3,
+      "air_date": "1992-03-25",
+      "still_path": "/glDnCsbbbUqMFwRZqDeLZNrpIA7.jpg",
+      "runtime": 24,
+      "vote_average": 7.533
+    },
+    {
+      "id": 63142,
+      "name": "The Parking Space",
+      "overview": "George argues with a stranger over a \"dream\" parking space in front of Jerry's apartment.",
+      "episode_number": 22,
+      "season_number": 3,
+      "air_date": "1992-04-22",
+      "still_path": "/i1nIU4Xc3rRhMmk7Ul6JDInVorz.jpg",
+      "runtime": 24,
+      "vote_average": 7.8
+    },
+    {
+      "id": 63143,
+      "name": "The Keys",
+      "overview": "Kramer hits the road after a dispute over his use of his keys to Jerry's apartment.",
+      "episode_number": 23,
+      "season_number": 3,
+      "air_date": "1992-05-06",
+      "still_path": "/irAQYu43uY0LBhoiKAoany1cZyA.jpg",
+      "runtime": 24,
+      "vote_average": 8.036
+    }
+  ]
+}

@@ -1,0 +1,250 @@
+package views
+
+// Layout is the base HTML shell for every Smash Deck page. Dark-first with a
+// pre-paint script that prevents flash-of-wrong-theme on slow Pi hardware.
+// Uses the default cast background.
+templ Layout(title string, content templ.Component) {
+	@LayoutBg(title, "/static/img/seinfeld-cast.jpg", content)
+}
+
+// LayoutFeatureBg is for pages where the background image is a *feature*,
+// not ambience — Soup Nazi on /blacklist is the canonical case. Higher
+// image opacity, thinner tint, so the photo actually reads through the
+// broadcast palette. Use Layout() for ambient (cast image) backgrounds.
+templ LayoutFeatureBg(title, bgURL string, content templ.Component) {
+	@layoutShell(title, bgURL, "opacity-60 dark:opacity-50", "bg-amber-50/35 dark:bg-[#001028]/45", true, content)
+}
+
+// LayoutBg is the base shell with a subtle per-page bg image (cast-image
+// level: visible but not competing with content).
+templ LayoutBg(title, bgURL string, content templ.Component) {
+	@layoutShell(title, bgURL, "opacity-25 dark:opacity-15", "bg-amber-50/60 dark:bg-[#001028]/75", true, content)
+}
+
+// LayoutNoNav is like Layout but omits the nav bar. Use for auth pages (login,
+// change-password) so navigation links cannot be used to bypass auth gates.
+templ LayoutNoNav(title string, content templ.Component) {
+	@layoutShell(title, "/static/img/seinfeld-cast.jpg", "opacity-25 dark:opacity-15", "bg-amber-50/60 dark:bg-[#001028]/75", false, content)
+}
+
+templ layoutShell(title, bgURL, imgOpacity, tintClasses string, withNav bool, content templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full antialiased">
+		<head>
+			<script>
+				(function () {
+					try {
+						var k = "jerry-theme";
+						var s = localStorage.getItem(k);
+						var dark = s === "light" ? false : true;
+						document.documentElement.classList.toggle("dark", dark);
+					} catch (e) {
+						document.documentElement.classList.add("dark");
+					}
+				})();
+			</script>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content="dark light"/>
+			<title>{ BrandTitle(title) }</title>
+			<link rel="preconnect" href="https://fonts.googleapis.com"/>
+			<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+			<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&amp;family=Bodoni+Moda:ital,wght@0,400;0,700;0,800;1,400&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+			<link rel="stylesheet" href="/static/app.css"/>
+			<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
+			<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png"/>
+			<link rel="icon" type="image/png" sizes="192x192" href="/static/favicon-192.png"/>
+			<link rel="apple-touch-icon" href="/static/favicon-192.png"/>
+			<link rel="shortcut icon" href="/static/favicon.ico"/>
+			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+			<script defer src="https://unpkg.com/alpinejs@3.13.10/dist/cdn.min.js"></script>
+		</head>
+		<body class="min-h-full font-mono transition-colors">
+			<!-- Per-page background image — opacity is variant-driven (ambient vs feature). -->
+			<div class={ "pointer-events-none fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat " + imgOpacity } style={ "background-image: url('" + bgURL + "');" }></div>
+			<!-- Royal-blue tint overlay — also variant-driven so feature pages read through. -->
+			<div class={ "pointer-events-none fixed inset-0 -z-10 " + tintClasses }></div>
+			<!-- CRT scanline overlay — sits above the tint, below the nav, under the bumper. -->
+			<div class="scanlines"></div>
+			<!-- Bumper wipe — fires on `jerry:bumper` event (bailout / skip). -->
+			<div class="bumper-wipe"></div>
+			if withNav {
+				@Nav()
+			}
+			<main class="mx-auto max-w-5xl px-6 py-10">
+				@content
+			</main>
+			<script>
+				// Trigger the bumper wipe whenever something dispatches `jerry:bumper`,
+				// or any HTMX request hits an /api/skip / /api/button/press endpoint.
+				(function () {
+					function fire() {
+						document.body.classList.remove('bumper-active');
+						// Force reflow so re-adding the class re-runs the animation.
+						void document.body.offsetWidth;
+						document.body.classList.add('bumper-active');
+					}
+					window.addEventListener('jerry:bumper', fire);
+					document.body.addEventListener('animationend', function (e) {
+						if (e.animationName === 'bumperWipe') {
+							document.body.classList.remove('bumper-active');
+						}
+					});
+					// HTMX requests to skip / button-press endpoints fire the bumper too.
+					document.body.addEventListener('htmx:beforeRequest', function (e) {
+						var path = (e.detail && e.detail.requestConfig && e.detail.requestConfig.path) || '';
+						if (path === '/api/skip' || path === '/api/button/press') {
+							fire();
+						}
+					});
+				})();
+			</script>
+
+			<!-- Event ticker — fixed strip at bottom showing the latest event.
+			     Click to expand into a scrollable panel of the last 20.
+			     Useful for live troubleshooting + copy-paste into a support email. -->
+			<aside id="ticker"
+				class="pointer-events-auto fixed inset-x-0 bottom-0 z-40 border-t-2 border-[--color-bc-yellow] bg-[#000a24] text-[--color-bc-cream] font-mono text-[11px]"
+				data-testid="event-ticker"
+			>
+				<button id="ticker-toggle" type="button"
+					class="flex w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-black/40"
+					title="Click to expand recent events"
+				>
+					<span class="rounded-sm bg-[--color-bc-yellow] px-1.5 py-0.5 text-[10px] font-bold uppercase text-black">LIVE</span>
+					<span id="ticker-line" class="flex-1 truncate" data-testid="ticker-line">— waiting for events —</span>
+					<span id="ticker-caret" class="text-[--color-bc-yellow]">▴</span>
+				</button>
+				<div id="ticker-panel" class="hidden max-h-[40vh] overflow-y-auto border-t border-[--color-bc-yellow]/40 bg-black px-4 py-3" data-testid="ticker-panel">
+					<ul id="ticker-list" class="space-y-1"></ul>
+					<div class="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[10px] text-zinc-500">
+						<span>Newest first · last 20 events</span>
+						<button id="ticker-copy" type="button" class="rounded border border-zinc-600 px-2 py-0.5 hover:bg-white/5" title="Copy as plain text">copy log</button>
+					</div>
+				</div>
+			</aside>
+
+			<script>
+				(function () {
+					const toggle = document.getElementById('ticker-toggle');
+					const panel = document.getElementById('ticker-panel');
+					const line = document.getElementById('ticker-line');
+					const list = document.getElementById('ticker-list');
+					const caret = document.getElementById('ticker-caret');
+					const copyBtn = document.getElementById('ticker-copy');
+					if (!toggle || !panel) return;
+
+					let lastEvents = [];
+					function relTime(iso) {
+						const t = new Date(iso).getTime();
+						if (isNaN(t)) return '';
+						const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+						if (s < 60) return s + 's ago';
+						if (s < 3600) return Math.floor(s / 60) + 'm ago';
+						return Math.floor(s / 3600) + 'h ago';
+					}
+					function levelDot(level) {
+						if (level === 'error') return '<span style="color:#ff5a5a">●</span>';
+						if (level === 'warn') return '<span style="color:#ffd700">●</span>';
+						return '<span style="color:#6bd16b">●</span>';
+					}
+					function render() {
+						if (!lastEvents.length) {
+							line.textContent = '— no events yet —';
+							list.innerHTML = '<li class="text-zinc-500">— ring buffer is empty —</li>';
+							return;
+						}
+						const top = lastEvents[0];
+						line.innerHTML = levelDot(top.level) + ' <span class="text-[--color-bc-yellow]">[' + top.source + ']</span> ' + escapeHTML(top.message) + ' <span class="text-zinc-500">· ' + relTime(top.time) + '</span>';
+						list.innerHTML = lastEvents.map(function (e) {
+							return '<li>' + levelDot(e.level) + ' <span class="text-zinc-500">' + relTime(e.time) + '</span> <span class="text-[--color-bc-yellow]">[' + e.source + ']</span> ' + escapeHTML(e.message) + '</li>';
+						}).join('');
+					}
+					function escapeHTML(s) {
+						return String(s).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]); });
+					}
+
+					toggle.addEventListener('click', function () {
+						const open = !panel.classList.contains('hidden');
+						panel.classList.toggle('hidden');
+						caret.textContent = open ? '▴' : '▾';
+					});
+
+					if (copyBtn) {
+						copyBtn.addEventListener('click', function (ev) {
+							ev.stopPropagation();
+							const text = lastEvents.map(function (e) {
+								return new Date(e.time).toISOString() + ' [' + e.level + '] [' + e.source + '] ' + e.message;
+							}).join('\n');
+							navigator.clipboard.writeText(text).then(function () {
+								copyBtn.textContent = 'copied!';
+								setTimeout(function () { copyBtn.textContent = 'copy log'; }, 1200);
+							});
+						});
+					}
+
+					async function poll() {
+						try {
+							const r = await fetch('/api/events/recent?n=20');
+							if (!r.ok) return;
+							const data = await r.json();
+							lastEvents = data.events || [];
+							render();
+						} catch (e) { /* ignore until next tick */ }
+					}
+					poll();
+					setInterval(poll, 5000);
+				})();
+			</script>
+		</body>
+	</html>
+}
+
+templ Nav() {
+	<nav class="relative border-b-4 border-[--color-bc-yellow] bg-[--color-bc-royal] text-[--color-bc-cream] dark:bg-[#000a24]">
+		<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+			<a href="/" class="flex items-center gap-3">
+				<span class="font-mono text-[10px] uppercase tracking-[0.3em] text-[--color-bc-yellow]">Smash Deck · Channel 14</span>
+				<img src={ BrandLogoURL } alt={ BrandTenantName } class="h-12 w-auto" onerror="this.style.display='none'"/>
+			</a>
+			<div class="flex items-center gap-3 font-mono text-[11px] uppercase tracking-wider text-[--color-bc-cream]">
+				<a href="/" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-dashboard">Now Playing</a>
+				<a href="/summary" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-summary">Summary</a>
+				<a href="/episodes" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-episodes">Episodes</a>
+				<a href="/playlists" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-playlists">Playlists</a>
+				<a href="/soundboard" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-soundboard">Soundboard</a>
+				<a href="/blacklist" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-blacklist">No Soup For You</a>
+<a href="/commercials" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-commercials">Commercials</a>
+				<a href="/network" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-network">Network</a>
+				<a href="/schedules" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-schedules">Hours</a>
+				<a href="/help" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-help">Help</a>
+				<a href="/settings" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-settings">Settings</a>
+				@ThemeToggle()
+			</div>
+		</div>
+	</nav>
+}
+
+// ThemeToggle is a small icon button in the upper right that flips between
+// dark and light. The pre-paint script in <head> already reads localStorage
+// so this just writes back and updates the class.
+templ ThemeToggle() {
+	<button
+		type="button"
+		onclick="(function(){var d=document.documentElement.classList.toggle('dark');try{localStorage.setItem('jerry-theme',d?'dark':'light')}catch(e){}})()"
+		title="Toggle light/dark"
+		aria-label="Toggle light/dark"
+		data-testid="theme-toggle"
+		class="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:text-amber-500 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:text-amber-400"
+	>
+		<!-- Sun (visible in dark mode → click to go light) -->
+		<svg xmlns="http://www.w3.org/2000/svg" class="hidden h-4 w-4 dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+			<circle cx="12" cy="12" r="4"/>
+			<path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+		</svg>
+		<!-- Moon (visible in light mode → click to go dark) -->
+		<svg xmlns="http://www.w3.org/2000/svg" class="block h-4 w-4 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+			<path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+		</svg>
+	</button>
+}

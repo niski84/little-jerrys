@@ -1,0 +1,40 @@
+# Little Jerry's — Brian preview compose
+#
+# This is the Brian-friendly compose file: pulls the published image from
+# GHCR, no source clone, no build toolchain required. Drop this into a
+# directory on your workstation, drop a few episode .mp4s into ./media/,
+# and run:
+#
+#   podman compose up -d
+#
+# Then open http://localhost:8089 in a browser. Default login is
+# admin / admin — you'll be prompted to change it on first login.
+#
+# To see what mpv is "rendering" (since there's no real HDMI here),
+# point a VNC client at vnc://localhost:5901 — passwordless.
+#
+# To stop:
+#   podman compose down
+#
+# To pull the latest published version:
+#   podman compose pull && podman compose up -d
+
+services:
+  jerry:
+    image: ghcr.io/niski84/little-jerrys:latest
+    container_name: little-jerrys
+    ports:
+      - "8089:8089"   # web UI
+      - "5901:5900"   # VNC into the headless X display
+    volumes:
+      # Drop episodes / commercials in here. The container reads them at
+      # /media/usb — same path the real Pi appliance uses for the USB drive.
+      - ./media:/media/usb:rw
+      # Persist settings, weights, blacklist, playlists, schedules.
+      - jerry-state:/var/lib/jerry
+    environment:
+      JERRY_RESCUE_PASSWORD: jerry-rescue
+    restart: unless-stopped
+
+volumes:
+  jerry-state:

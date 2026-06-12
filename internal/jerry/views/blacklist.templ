@@ -1,0 +1,84 @@
+package views
+
+import (
+	"fmt"
+	"strconv"
+)
+
+// BlacklistVM is the bulk view of all episodes with block toggles. Now
+// keyed by TMDB seasons/episodes (instead of file paths). Toggle posts
+// route through /episodes/{S}/{E}/blocked — same endpoint the per-episode
+// detail page uses.
+type BlacklistVM struct {
+	SeasonGroups  []BlacklistSeasonGroup
+	BlockedCount  int
+	Locked        bool
+}
+
+// BlacklistSeasonGroup is one season's worth of episodes for the bulk list.
+type BlacklistSeasonGroup struct {
+	SeasonNumber int
+	Episodes     []BlacklistEntry
+}
+
+// BlacklistEntry is one episode row.
+type BlacklistEntry struct {
+	Season  int
+	Episode int
+	Title   string
+	Blocked bool
+}
+
+templ Blacklist(vm BlacklistVM) {
+	@LayoutFeatureBg("Little Jerry's — No Soup For You", "/static/img/soupnazi.jpg", blacklistBody(vm))
+}
+
+templ blacklistBody(vm BlacklistVM) {
+	<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55">
+		<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">No Soup For You</p>
+		<h1 class="mt-2 display-title text-3xl text-amber-500 dark:text-amber-400">Blacklist</h1>
+		<p class="mt-1 text-sm text-zinc-700 dark:text-zinc-200">
+			Toggle episodes Tony or staff don't want in rotation.
+			if vm.BlockedCount > 0 {
+				<span class="ml-2 rounded bg-rose-500/20 px-2 py-0.5 text-xs font-bold text-rose-700 dark:text-rose-300" data-testid="blocked-count">{ strconv.Itoa(vm.BlockedCount) } blocked</span>
+			}
+		</p>
+
+		for _, g := range vm.SeasonGroups {
+			<details class="mt-6 rounded-lg border border-zinc-200 bg-white/80 dark:border-white/10 dark:bg-zinc-950/40" data-testid={ "blacklist-season-" + strconv.Itoa(g.SeasonNumber) }>
+				<summary class="cursor-pointer px-4 py-3 font-mono text-sm font-bold uppercase tracking-wider">
+					Season { strconv.Itoa(g.SeasonNumber) }
+					<span class="ml-2 text-xs text-zinc-500 dark:text-zinc-400">{ strconv.Itoa(len(g.Episodes)) } episodes · { strconv.Itoa(countBlocked(g)) } blocked</span>
+				</summary>
+				<ul class="grid grid-cols-1 gap-1 px-4 pb-4 md:grid-cols-2">
+					for _, ep := range g.Episodes {
+						<li class="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-950/40">
+							<a href={ templ.SafeURL(fmt.Sprintf("/episodes/%d/%d", ep.Season, ep.Episode)) } class="min-w-0 flex-1 hover:text-amber-600 dark:hover:text-amber-400">
+								<span class="mr-2 font-mono text-[11px] text-amber-600 dark:text-amber-400">{ fmt.Sprintf("S%02dE%02d", ep.Season, ep.Episode) }</span>
+								<span class="truncate text-zinc-800 dark:text-zinc-200">{ ep.Title }</span>
+							</a>
+							<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/episodes/%d/%d/blocked", ep.Season, ep.Episode)) }>
+								if ep.Blocked {
+									<button class="btn btn-warning btn-sm" disabled?={ vm.Locked } data-testid={ fmt.Sprintf("unblock-%d-%d", ep.Season, ep.Episode) }>Unblock</button>
+								} else {
+									<button class="btn btn-sm" disabled?={ vm.Locked } data-testid={ fmt.Sprintf("block-%d-%d", ep.Season, ep.Episode) }>Block</button>
+								}
+							</form>
+						</li>
+					}
+				</ul>
+			</details>
+		}
+	</section>
+}
+
+// countBlocked is used by the per-season summary line in the bulk view.
+func countBlocked(g BlacklistSeasonGroup) int {
+	n := 0
+	for _, ep := range g.Episodes {
+		if ep.Blocked {
+			n++
+		}
+	}
+	return n
+}

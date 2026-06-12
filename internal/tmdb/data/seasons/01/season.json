@@ -1,0 +1,65 @@
+{
+  "id": 3629,
+  "name": "Season 1",
+  "overview": "",
+  "season_number": 1,
+  "air_date": "1989-07-05",
+  "poster_path": "/8CcmmI4kdxI3tEzD8OOAXs0vz5.jpg",
+  "episodes": [
+    {
+      "id": 63104,
+      "name": "The Seinfeld Chronicles",
+      "overview": "Jerry is ecstatic that a woman he met on the road is coming to stay with him in New York. George and Kramer weigh in on how Jerry should best approach the situation.",
+      "episode_number": 1,
+      "season_number": 1,
+      "air_date": "1989-07-05",
+      "still_path": "/v8KULeozyzIJPka2cyLgv3XBja3.jpg",
+      "runtime": 23,
+      "vote_average": 7.145
+    },
+    {
+      "id": 63105,
+      "name": "The Stake Out",
+      "overview": "Jerry meets an attractive woman at a party but by the time she leaves, he has only learned where she works. Jerry stakes out the mystery woman's office with George so that he can “casually” bump into her.",
+      "episode_number": 2,
+      "season_number": 1,
+      "air_date": "1990-05-31",
+      "still_path": "/zPMl6UTCwZVMQZvdXMBKAuYzLQa.jpg",
+      "runtime": 23,
+      "vote_average": 7.4
+    },
+    {
+      "id": 63106,
+      "name": "The Robbery",
+      "overview": "Jerry is robbed after Kramer fails to close the apartment door. Elaine talks Jerry into looking at a fabulous apartment in the hopes that she can then have Jerry’s place. Things are further complicated when George decides he wants the new place too.",
+      "episode_number": 3,
+      "season_number": 1,
+      "air_date": "1990-06-07",
+      "still_path": "/dbfB7fSqrh41ukwIcxkpZUwMasq.jpg",
+      "runtime": 23,
+      "vote_average": 7.1
+    },
+    {
+      "id": 63107,
+      "name": "Male Unbonding",
+      "overview": "Jerry tries to “break-up” with his obnoxious childhood friend but his pathetic weeping leads Jerry to give him another chance. Elaine helps Jerry come up with excuses to avoid him.",
+      "episode_number": 4,
+      "season_number": 1,
+      "air_date": "1990-06-14",
+      "still_path": "/aMaKtInc4c0AbPkvQvLVJxe2Ox3.jpg",
+      "runtime": 23,
+      "vote_average": 7.2
+    },
+    {
+      "id": 63108,
+      "name": "The Stock Tip",
+      "overview": "After George receives a stock tip, he and Jerry take the financial plunge. Elaine and her allergies battle her boyfriend’s cats. Meanwhile,Jerry’s weekend getaway with his new girlfriend proves to be a relationship killer.",
+      "episode_number": 5,
+      "season_number": 1,
+      "air_date": "1990-06-21",
+      "still_path": "/2Pgoebr2V0YzgfFVp2toC5aND4E.jpg",
+      "runtime": 23,
+      "vote_average": 7.5
+    }
+  ]
+}

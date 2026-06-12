@@ -1,0 +1,252 @@
+{
+  "id": 3636,
+  "name": "Season 8",
+  "overview": "",
+  "season_number": 8,
+  "air_date": "1996-09-19",
+  "poster_path": "/qI4dkI4YlCGqFMJX7y5knLRAQn5.jpg",
+  "episodes": [
+    {
+      "id": 63239,
+      "name": "The Foundation",
+      "overview": "Susan's parents act to preserve her memory; Kramer gives Elaine a confidence boost after Peterman puts her in charge.",
+      "episode_number": 1,
+      "season_number": 8,
+      "air_date": "1996-09-19",
+      "still_path": "/lZETh2DTSh9GdjzKMvf6eFW6Ft4.jpg",
+      "runtime": 22,
+      "vote_average": 7.714
+    },
+    {
+      "id": 63240,
+      "name": "The Soul Mate",
+      "overview": "Kramer falls for the woman Jerry's seeing; George suspects he's suspected of foul play.",
+      "episode_number": 2,
+      "season_number": 8,
+      "air_date": "1996-09-26",
+      "still_path": "/pnFbjq7OEOUT3DRItuKO9yXmQ9c.jpg",
+      "runtime": 22,
+      "vote_average": 7.8
+    },
+    {
+      "id": 63241,
+      "name": "The Bizarro Jerry",
+      "overview": "Elaine hangs out with men who are opposites of Jerry, George and Kramer; Kramer stumbles into a white-collar job; Jerry finds a flaw in Elaine's beautiful friend.",
+      "episode_number": 3,
+      "season_number": 8,
+      "air_date": "1996-10-03",
+      "still_path": "/vkuQ62wzo43JDWu6GcRKKhDdIwk.jpg",
+      "runtime": 23,
+      "vote_average": 8.4
+    },
+    {
+      "id": 63242,
+      "name": "The Little Kicks",
+      "overview": "Elaine's staff loses respect for her after seeing her dance; George benefits socially when Elaine labels him a \"bad seed\"; Kramer's friend forces Jerry into crime.",
+      "episode_number": 4,
+      "season_number": 8,
+      "air_date": "1996-10-10",
+      "still_path": "/aO5blG5gd4MVYaeaFc413Fds6fr.jpg",
+      "runtime": 22,
+      "vote_average": 8.3
+    },
+    {
+      "id": 63243,
+      "name": "The Package",
+      "overview": "Elaine regrets peeking at her medical chart; George takes dating advice from Kramer, who also hatches a scheme to improve Jerry's stereo.",
+      "episode_number": 5,
+      "season_number": 8,
+      "air_date": "1996-10-17",
+      "still_path": "/ts2HTJvIw5lMD2STqx6yaV0CtH9.jpg",
+      "runtime": 22,
+      "vote_average": 8.2
+    },
+    {
+      "id": 63244,
+      "name": "The Fatigues",
+      "overview": "An employee's military bent scares Elaine; Kramer cooks for a Jewish singles night; Jerry finds fault with his girlfriend's mentor.",
+      "episode_number": 6,
+      "season_number": 8,
+      "air_date": "1996-10-31",
+      "still_path": "/e0xiajniH04DKECxT1r5qYDNbZ0.jpg",
+      "runtime": 22,
+      "vote_average": 7.7
+    },
+    {
+      "id": 63245,
+      "name": "The Checks",
+      "overview": "Jerry's popularity in Japan brings new friends to Kramer, and maybe new life to Jerry's TV pilot; Elaine's new beau won't share \"his song\" with her.",
+      "episode_number": 7,
+      "season_number": 8,
+      "air_date": "1996-11-07",
+      "still_path": "/3yxscF3Yv2Xwz6JlLQo1VJ1RZmZ.jpg",
+      "runtime": 22,
+      "vote_average": 7.8
+    },
+    {
+      "id": 63246,
+      "name": "The Chicken Roaster",
+      "overview": "George loses an expensive hat Elaine charged to her business account; a neon sign prompts Kramer and Jerry to swap apartments.",
+      "episode_number": 8,
+      "season_number": 8,
+      "air_date": "1996-11-14",
+      "still_path": "/8FKEgQdaZa6dFXfZElouJ5UgN.jpg",
+      "runtime": 23,
+      "vote_average": 8.4
+    },
+    {
+      "id": 63247,
+      "name": "The Abstinence",
+      "overview": "George's intellect thrives when thoughts of sex are shut out; Elaine wants her intern to become a doctor--stat; Jerry is bumped from a school's Career Day.",
+      "episode_number": 9,
+      "season_number": 8,
+      "air_date": "1996-11-21",
+      "still_path": "/aQ2kH3P3sSeelhIQHeTz9zH0cLS.jpg",
+      "runtime": 22,
+      "vote_average": 8.5
+    },
+    {
+      "id": 63248,
+      "name": "The Andrea Doria",
+      "overview": "Jerry tries to help Newman get transferred; George trades tales with a shipwreck survivor to obtain a dream apartment; Kramer coughs like a dog; a minor insult has a major effect on Elaine.",
+      "episode_number": 10,
+      "season_number": 8,
+      "air_date": "1996-12-19",
+      "still_path": "/8oVD1uKErheTWn01vK5KxGbnW7L.jpg",
+      "runtime": 22,
+      "vote_average": 8
+    },
+    {
+      "id": 63249,
+      "name": "The Little Jerry",
+      "overview": "George finds a new romance--in a women's prison; Kramer buys a chicken, then puts his fowl to foul use; Elaine encourages her shaved-headed beau to grow back his hair.",
+      "episode_number": 11,
+      "season_number": 8,
+      "air_date": "1997-01-09",
+      "still_path": "/5uDnNgnAvcR2ABjM1akgOEARi3S.jpg",
+      "runtime": 22,
+      "vote_average": 7.9
+    },
+    {
+      "id": 63250,
+      "name": "The Money",
+      "overview": "Kramer's girlfriend disrupts his sleep; Jerry's parents think he needs financial aid; George ponders an inheritance.",
+      "episode_number": 12,
+      "season_number": 8,
+      "air_date": "1997-01-16",
+      "still_path": "/s4REh6RxouxnIc0FxVTCnxoMl0Y.jpg",
+      "runtime": 23,
+      "vote_average": 7.7
+    },
+    {
+      "id": 63251,
+      "name": "The Comeback",
+      "overview": "Kramer arranges to die with dignity; Jerry learns his tennis consultant is a lousy player; George becomes obsessed with responding to an insult long after the fact; Elaine offends her video advisor.",
+      "episode_number": 13,
+      "season_number": 8,
+      "air_date": "1997-01-30",
+      "still_path": "/9ECbFHKynwqOzPPViZnHpcq21Rz.jpg",
+      "runtime": 23,
+      "vote_average": 8
+    },
+    {
+      "id": 63252,
+      "name": "The Van Buren Boys",
+      "overview": "Gang members protest George's handling of a scholarship named for Susan; some find Jerry's new girlfriend objectionable; Peterman wants Kramer's life experiences for his own autobiography, written by Elaine.",
+      "episode_number": 14,
+      "season_number": 8,
+      "air_date": "1997-02-06",
+      "still_path": "/s9XFVrtftmgrnV2KTRe5luUdbX5.jpg",
+      "runtime": 23,
+      "vote_average": 7.8
+    },
+    {
+      "id": 63253,
+      "name": "The Susie",
+      "overview": "Kramer becomes the spokesman for a woman George wants to avoid; Jerry's bookie welches; a co-worker mistakes Elaine for someone else, who's reported as a problem worker.",
+      "episode_number": 15,
+      "season_number": 8,
+      "air_date": "1997-02-13",
+      "still_path": "/5FykP2CXAnuoai7i0cfhUdkIb41.jpg",
+      "runtime": 22,
+      "vote_average": 8
+    },
+    {
+      "id": 63254,
+      "name": "The Pothole",
+      "overview": "Jerry has an accident with his girlfriend's toothbrush; Elaine crams herself into a restaurant's delivery boundary; Kramer alters his \"adopted\" highway.",
+      "episode_number": 16,
+      "season_number": 8,
+      "air_date": "1997-02-20",
+      "still_path": "/tAY3t7YYT35dsWS57YbdhtOoIPZ.jpg",
+      "runtime": 22,
+      "vote_average": 8.2
+    },
+    {
+      "id": 63255,
+      "name": "The English Patient",
+      "overview": "Elaine's review of a film loses her friends; a woman mistakes George for her boyfriend; Jerry visits his parents in Florida.",
+      "episode_number": 17,
+      "season_number": 8,
+      "air_date": "1997-03-13",
+      "still_path": "/a0NqgRsa2pxfMibBnoBld25IrWK.jpg",
+      "runtime": 22,
+      "vote_average": 8.1
+    },
+    {
+      "id": 63256,
+      "name": "The Nap",
+      "overview": "George crafts a place to nap at work; a new beau gives Elaine a mattress, which Kramer promptly soils; Jerry's kitchen is redesigned against his will.",
+      "episode_number": 18,
+      "season_number": 8,
+      "air_date": "1997-04-10",
+      "still_path": "/urYh8fShgRXchyonPrsHnnbBg7u.jpg",
+      "runtime": 22,
+      "vote_average": 8.2
+    },
+    {
+      "id": 63257,
+      "name": "The Yada Yada",
+      "overview": "George adopts his girlfriend's verbal shorthand; Jerry suspects a comic motive behind his dentist's conversion to Judaism; double-daters Kramer and Mickey don't know whose date is whose.",
+      "episode_number": 19,
+      "season_number": 8,
+      "air_date": "1997-04-24",
+      "still_path": "/yVaVr3kFCGvGvzGyLdCayG1YUVk.jpg",
+      "runtime": 26,
+      "vote_average": 8.6
+    },
+    {
+      "id": 63258,
+      "name": "The Millennium",
+      "overview": "The Mets express interest in George; an inattentive saleswoman irks Elaine; Kramer prepares for his millennium party; Jerry jockeys for position on his girlfriend's speed dial.",
+      "episode_number": 20,
+      "season_number": 8,
+      "air_date": "1997-05-01",
+      "still_path": "/iESxE00HHZNWsoABaKdWShHUBvp.jpg",
+      "runtime": 22,
+      "vote_average": 7.9
+    },
+    {
+      "id": 63259,
+      "name": "The Muffin Tops",
+      "overview": "George pretends he's a tourist to bond with a tourism worker; Elaine's former boss steals her million-dollar idea, while Kramer promotes a bus tour about the life of Elaine's current boss; Jerry shaves his chest hair.",
+      "episode_number": 21,
+      "season_number": 8,
+      "air_date": "1997-05-08",
+      "still_path": "/tVACetZ7Cetdm4NakR7ZswrAQb0.jpg",
+      "runtime": 23,
+      "vote_average": 8
+    },
+    {
+      "id": 63260,
+      "name": "The Summer of George",
+      "overview": "Kramer's job at the Tony Awards leads to a meeting with Raquel Welch; George helps Jerry date a high-maintenance woman; Elaine is labeled catty after making a comment about a co-worker.",
+      "episode_number": 22,
+      "season_number": 8,
+      "air_date": "1997-05-15",
+      "still_path": "/mWrFDQCHATb0msSmDkzpxXmAmeA.jpg",
+      "runtime": 22,
+      "vote_average": 8.2
+    }
+  ]
+}

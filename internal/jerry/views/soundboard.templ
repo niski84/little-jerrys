@@ -1,0 +1,112 @@
+package views
+
+import (
+	"strconv"
+
+	"github.com/niski84/sienfeld_smash_deck/internal/sounds"
+)
+
+type SoundboardVM struct {
+	Clips    []sounds.Clip
+	SoundDir string // host-visible path where files go (shown in empty state + footer)
+}
+
+templ Soundboard(vm SoundboardVM) {
+	@Layout("Little Jerry's — Soundboard", soundboardBody(vm))
+}
+
+templ soundboardBody(vm SoundboardVM) {
+	<div class="grid grid-cols-1 gap-6">
+		<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55">
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div>
+					<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Soundboard</p>
+					<h1 class="mt-2 display-title text-3xl text-amber-500 dark:text-amber-400">SLAP THE BUTTON</h1>
+					<p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+						One button per audio file in
+						<code class="font-mono text-amber-600 dark:text-amber-400">{ vm.SoundDir }</code>.
+						Drop in <code>.mp3</code> / <code>.ogg</code> / <code>.wav</code> / <code>.m4a</code> files,
+						hit Rescan, and they appear.
+					</p>
+				</div>
+				<a href="/soundboard" class="btn btn-sm" data-testid="soundboard-rescan">↻ Rescan</a>
+			</div>
+		</section>
+
+		if len(vm.Clips) == 0 {
+			<section class="rounded-2xl border border-dashed border-amber-400 bg-amber-50/40 p-10 text-center dark:bg-amber-950/20" data-testid="soundboard-empty">
+				<p class="display-title text-xl text-amber-600 dark:text-amber-400">No clips loaded yet.</p>
+				<p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+					Drop audio files into <code class="font-mono text-amber-700 dark:text-amber-300">{ vm.SoundDir }</code> and hit Rescan above.
+				</p>
+				<p class="mt-2 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+					Optional: prefix a filename with a color to set the cap —
+					<code>blue-newman.mp3</code>, <code>yellow-festivus.mp3</code>. Default is red.
+				</p>
+			</section>
+		} else {
+			<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55" data-testid="soundboard-grid">
+				<div class="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+					for i, c := range vm.Clips {
+						@arcadeButton(c, i)
+					}
+				</div>
+				<p class="mt-6 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+					{ strconv.Itoa(len(vm.Clips)) } clip{ pluralS(len(vm.Clips)) } loaded · multi-press overlaps
+				</p>
+			</section>
+		}
+	</div>
+
+	<script>
+		// Each press creates a fresh Audio() so multi-press overlaps cleanly.
+		// `.pressed` class supplies the depress feedback on touch devices that
+		// don't honor :active reliably.
+		(function () {
+			document.querySelectorAll('.arcade-btn').forEach(function (btn) {
+				btn.addEventListener('click', function () {
+					const url = btn.dataset.clip;
+					if (!url) return;
+					try {
+						const audio = new Audio(url);
+						audio.play().catch(function (e) { console.warn('audio play:', e); });
+					} catch (e) { console.warn('audio:', e); }
+					btn.classList.add('pressed');
+					setTimeout(function () { btn.classList.remove('pressed'); }, 180);
+				});
+			});
+		})();
+	</script>
+}
+
+templ arcadeButton(c sounds.Clip, idx int) {
+	<div class="flex flex-col items-center gap-2" data-testid={ "arcade-cell-" + strconv.Itoa(idx) }>
+		<button
+			type="button"
+			class={ "arcade-btn arcade-btn-" + safeColor(c.Color) }
+			data-clip={ c.URL }
+			data-testid={ "arcade-btn-" + strconv.Itoa(idx) }
+			aria-label={ c.Label }
+			title={ c.Filename }
+		>
+			<span class="arcade-cap-glint" aria-hidden="true"></span>
+		</button>
+		<p class="text-center font-mono text-xs uppercase tracking-wider text-zinc-700 dark:text-zinc-200">{ c.Label }</p>
+		<p class="text-center font-mono text-[10px] text-zinc-500 dark:text-zinc-400 break-all">{ c.Filename }</p>
+	</div>
+}
+
+func safeColor(c string) string {
+	switch c {
+	case "blue", "yellow", "green", "magenta", "white", "red":
+		return c
+	}
+	return "red"
+}
+
+func pluralS(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}

@@ -1,0 +1,44 @@
+package views
+
+import "github.com/niski84/sienfeld_smash_deck/internal/help"
+
+type HelpVM struct {
+	Topics      []help.Topic
+	ActiveSlug  string
+	ContentHTML string
+	Title       string
+	NotFound    bool
+}
+
+templ Help(vm HelpVM) {
+	@Layout("Little Jerry's — Help: "+vm.Title, helpBody(vm))
+}
+
+templ helpBody(vm HelpVM) {
+	<div class="grid grid-cols-1 gap-6 lg:grid-cols-[14rem_1fr]">
+		<aside class="rounded-2xl border border-zinc-200 bg-white/80 p-6 dark:border-white/10 dark:bg-zinc-900/50" data-testid="help-sidebar">
+			<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Help</p>
+			<nav class="mt-4 flex flex-col gap-1 text-sm">
+				for _, t := range vm.Topics {
+					if t.Slug == vm.ActiveSlug {
+						<a href={ templ.SafeURL("/help/" + t.Slug) } class="rounded-md bg-amber-500/15 px-3 py-2 font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-200" data-testid={ "help-topic-" + t.Slug }>{ t.Title }</a>
+					} else {
+						<a href={ templ.SafeURL("/help/" + t.Slug) } class="rounded-md px-3 py-2 text-zinc-600 hover:bg-zinc-100 hover:text-amber-600 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-amber-400" data-testid={ "help-topic-" + t.Slug }>{ t.Title }</a>
+					}
+				}
+			</nav>
+		</aside>
+
+		<article class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/50">
+			if vm.NotFound {
+				<div class="rounded-lg border border-rose-500/40 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200" data-testid="help-not-found">
+					That help topic doesn't exist. Pick one from the sidebar.
+				</div>
+			} else {
+				<div class="help-prose max-w-none" data-testid="help-content">
+					@templ.Raw(vm.ContentHTML)
+				</div>
+			}
+		</article>
+	</div>
+}

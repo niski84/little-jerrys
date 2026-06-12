@@ -1,0 +1,29 @@
+# Binaries
+sienfeld_smash_deck
+little-jerrys
+
+# Media files (too large for git)
+*.mp4
+*.mp4.part
+*.mkv
+*.avi
+*.mov
+build/
+
+# Runtime
+*.log
+*.pid
+
+# Node
+node_modules/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Runtime data (media files, etc.)
+compose-data/media/
+
+# OS
+.DS_Store

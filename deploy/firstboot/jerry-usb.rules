@@ -1,0 +1,12 @@
+# Auto-mount the first USB drive plugged into the Pi at /media/usb.
+# Channel 14 Smash Deck looks for episodes, commercials, sounds, branding,
+# and `jerry.conf` under that path.
+#
+# Match any USB partition (sd[a-z][0-9]) and trigger systemd-mount with
+# our hardcoded mount point. Owner = jerry user (uid resolved at mount).
+
+ACTION=="add", KERNEL=="sd[a-z][0-9]", SUBSYSTEMS=="usb", \
+  RUN+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode /media/usb"
+
+ACTION=="remove", KERNEL=="sd[a-z][0-9]", SUBSYSTEMS=="usb", \
+  RUN+="/usr/bin/systemd-umount /media/usb"

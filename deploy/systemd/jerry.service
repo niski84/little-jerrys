@@ -1,0 +1,46 @@
+[Unit]
+Description=Little Jerry's
+Documentation=https://github.com/niski84/little-jerrys
+After=network-online.target multi-user.target jerry-firstboot.service
+Wants=network-online.target jerry-firstboot.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=jerry
+Group=jerry
+# jerry needs `video` to write to /dev/dri/card0 (DRM/KMS HDMI output)
+# and `audio` for ALSA. firstboot.sh adds these.
+SupplementaryGroups=video audio render
+
+# Where the appliance keeps its persistent state. /var/lib/jerry is created
+# by deploy/firstboot/firstboot.sh on the very first boot.
+Environment=JERRY_STATE_PATH=/var/lib/jerry/state.json
+
+# /media/usb is the canonical USB-mount point (set up by the firstboot
+# udev rules / fstab line). Episodes + commercials + branding/ + jerry.conf
+# all live there.
+Environment=JERRY_MEDIA_ROOT=/media/usb
+
+# mpv IPC socket. Must match what the binary expects when it talks to mpv.
+Environment=JERRY_MPV_SOCKET=/tmp/mpv-jerry.sock
+
+# Rescue password — burned in so a first-boot user without LAN can still
+# log in if they typo'd a new admin password. Document this in BURN-PI.md.
+Environment=JERRY_RESCUE_PASSWORD=jerry-rescue
+
+ExecStart=/opt/jerry/jerry
+WorkingDirectory=/opt/jerry
+
+Restart=always
+RestartSec=5
+
+# Hardening — read-only / lockdown what the appliance doesn't need.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/jerry /media/usb /tmp /run
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

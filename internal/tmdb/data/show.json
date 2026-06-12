@@ -1,0 +1,16 @@
+{
+  "id": 1400,
+  "name": "Seinfeld",
+  "overview": "A stand-up comedian and his three offbeat friends weather the pitfalls and payoffs of life in New York City in the '90s. It's a show about nothing.",
+  "first_air_date": "1989-07-05",
+  "number_of_seasons": 9,
+  "number_of_episodes": 180,
+  "poster_path": "/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg",
+  "backdrop_path": "/tMRdEsMg9MyXAkcufK9YJEeIaNW.jpg",
+  "genres": [
+    {
+      "id": 35,
+      "name": "Comedy"
+    }
+  ]
+}

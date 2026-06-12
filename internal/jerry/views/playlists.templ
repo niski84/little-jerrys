@@ -1,0 +1,153 @@
+package views
+
+import (
+	"fmt"
+	"strconv"
+)
+
+// PlaylistVM is one playlist row, enriched with TMDB titles for each
+// episode reference so the UI can show "S02E11 — The Chinese Restaurant"
+// instead of bare numbers.
+type PlaylistVM struct {
+	ID       string
+	Name     string
+	Created  string
+	Episodes []PlaylistEpisodeVM
+}
+
+// PlaylistEpisodeVM is one entry in a playlist with display metadata.
+type PlaylistEpisodeVM struct {
+	Season   int
+	Episode  int
+	Title    string // from TMDB cache; empty if metadata not available
+	Resolved bool   // true if a media file actually exists for this episode
+}
+
+type PlaylistsPageVM struct {
+	Playlists    []PlaylistVM
+	CreateError  string
+	SavedMessage string
+	Locked       bool
+}
+
+templ Playlists(vm PlaylistsPageVM) {
+	@Layout("Little Jerry's — Playlists", playlistsBody(vm))
+}
+
+templ playlistsBody(vm PlaylistsPageVM) {
+	<div class="grid grid-cols-1 gap-6">
+		<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55">
+			<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Custom Playlists</p>
+			<h1 class="mt-2 display-title text-3xl text-amber-500 dark:text-amber-400">Saved Lineups</h1>
+			<p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+				Hand-curated episode orderings. Click <strong>Play</strong> to load one into the queue —
+				when the playlist finishes, the appliance returns to true-random rotation.
+			</p>
+
+			if vm.SavedMessage != "" {
+				<div class="mt-3 rounded-md border border-emerald-500/40 bg-emerald-50 px-4 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200" data-testid="playlists-saved">{ vm.SavedMessage }</div>
+			}
+			if vm.CreateError != "" {
+				<div class="mt-3 rounded-md border border-rose-500/40 bg-rose-50 px-4 py-2 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200" data-testid="playlists-create-error">{ vm.CreateError }</div>
+			}
+
+			<form method="POST" action="/playlists/create" class="mt-6 flex gap-3" data-testid="playlists-create-form">
+				<input
+					name="name" type="text" required maxlength="40"
+					placeholder="e.g. Festivus marathon, Soup Nazi pack…"
+					disabled?={ vm.Locked }
+					data-testid="playlist-name"
+					class="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-950"
+				/>
+				<button class="btn btn-primary" disabled?={ vm.Locked } data-testid="playlist-create">New playlist</button>
+			</form>
+		</section>
+
+		if len(vm.Playlists) == 0 {
+			<section class="rounded-2xl border border-dashed border-zinc-300 bg-white/40 p-8 text-center dark:border-white/10 dark:bg-zinc-900/30" data-testid="playlists-empty">
+				<p class="text-sm text-zinc-500 dark:text-zinc-400">No playlists yet. Create one above, then visit <a href="/episodes" class="text-amber-600 hover:underline dark:text-amber-400">Episodes</a> to add to it.</p>
+			</section>
+		}
+
+		for _, p := range vm.Playlists {
+			@playlistRow(p, vm.Locked)
+		}
+	</div>
+}
+
+templ playlistRow(p PlaylistVM, locked bool) {
+	<section class="rounded-2xl border border-zinc-200 bg-white/85 p-6 dark:border-white/10 dark:bg-zinc-900/55" data-testid={ "playlist-row-" + p.ID }>
+		<div class="flex flex-wrap items-center justify-between gap-3">
+			<div class="min-w-0 flex-1">
+				<h2 class="serif-title text-xl">{ p.Name }</h2>
+				<p class="font-mono text-[11px] uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+					{ strconv.Itoa(len(p.Episodes)) } episodes · created { p.Created }
+				</p>
+			</div>
+			<div class="flex items-center gap-2">
+				<form method="POST" action={ templ.SafeURL("/playlists/" + p.ID + "/play") }>
+					<button class="btn btn-primary btn-sm" disabled?={ locked || len(p.Episodes) == 0 } data-testid={ "playlist-play-" + p.ID }>▶ Play</button>
+				</form>
+				<form method="POST" action={ templ.SafeURL("/playlists/" + p.ID + "/delete") } onsubmit="return confirm('Delete this playlist?')">
+					<button class="btn btn-ghost btn-sm" disabled?={ locked } data-testid={ "playlist-delete-" + p.ID }>Delete</button>
+				</form>
+			</div>
+		</div>
+
+		if len(p.Episodes) > 0 {
+			<ol class="mt-4 space-y-1">
+				for _, ep := range p.Episodes {
+					<li class="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-zinc-950/40">
+						<div class="min-w-0 flex-1">
+							<span class="mr-2 font-mono text-[11px] text-amber-600 dark:text-amber-400">{ fmt.Sprintf("S%02dE%02d", ep.Season, ep.Episode) }</span>
+							<span class="text-zinc-700 dark:text-zinc-200">
+								if ep.Title != "" {
+									{ ep.Title }
+								} else {
+									—
+								}
+							</span>
+							if !ep.Resolved {
+								<span class="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] uppercase text-amber-800 dark:bg-amber-500/20 dark:text-amber-300" title="No matching .mp4 in media catalog">no file</span>
+							}
+						</div>
+						<form method="POST" action={ templ.SafeURL("/playlists/" + p.ID + "/remove") } class="inline-flex">
+							<input type="hidden" name="season" value={ strconv.Itoa(ep.Season) }/>
+							<input type="hidden" name="episode" value={ strconv.Itoa(ep.Episode) }/>
+							<button class="btn btn-ghost btn-sm" disabled?={ locked } title="Remove from playlist">✕</button>
+						</form>
+					</li>
+				}
+			</ol>
+		}
+	</section>
+}
+
+// AddToPlaylistVM is the inline "add this episode to a playlist" widget
+// rendered on the /episodes detail panel.
+type AddToPlaylistVM struct {
+	Season    int
+	Episode   int
+	Playlists []PlaylistVM // names + IDs only; episode lists ignored here
+	Locked    bool
+}
+
+templ AddToPlaylistWidget(vm AddToPlaylistVM) {
+	<div class="mt-6 rounded-md border border-amber-500/30 bg-amber-50 p-3 dark:bg-amber-950/20" data-testid="add-to-playlist">
+		<p class="font-mono text-[11px] uppercase tracking-wider text-amber-700 dark:text-amber-300">Add to playlist</p>
+		if len(vm.Playlists) == 0 {
+			<p class="mt-2 text-xs text-zinc-600 dark:text-zinc-300">No playlists yet — <a href="/playlists" class="text-amber-700 hover:underline dark:text-amber-300">create one</a>.</p>
+		} else {
+			<form method="POST" action="/playlists/add-episode" class="mt-2 flex gap-2">
+				<input type="hidden" name="season" value={ strconv.Itoa(vm.Season) }/>
+				<input type="hidden" name="episode" value={ strconv.Itoa(vm.Episode) }/>
+				<select name="playlist_id" class="flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-zinc-950" data-testid="add-to-playlist-select">
+					for _, p := range vm.Playlists {
+						<option value={ p.ID }>{ p.Name }</option>
+					}
+				</select>
+				<button class="btn btn-sm" disabled?={ vm.Locked } data-testid="add-to-playlist-submit">Add</button>
+			</form>
+		}
+	</div>
+}

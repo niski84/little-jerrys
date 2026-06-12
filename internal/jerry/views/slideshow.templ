@@ -1,0 +1,126 @@
+package views
+
+import "strconv"
+
+// SlideshowVM carries the kiosk page's runtime config — number of images
+// (1, 4, or 16) and seconds per cycle. Catalog is fetched client-side from
+// /api/slideshow/catalog so the browser can shuffle without server round-trips.
+type SlideshowVM struct {
+	Enabled bool
+	Layout  int // 1, 4, or 16
+	SecsPer int
+}
+
+// Slideshow is the kiosk page loaded by chromium on the Pi's HDMI-1 output.
+// Deliberately bare — no nav, no auth gate — because it's loaded via
+// `chromium-browser --kiosk http://localhost:8089/slideshow` from a service
+// the Pi itself runs, not from a phone. If access from outside the Pi is a
+// concern, gate this in the network layer (firewall on the Pi).
+templ Slideshow(vm SlideshowVM) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Little Jerry's — Slideshow</title>
+			<style>
+				html, body { margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; background: #000; }
+				#disabled { color: #444; font-family: ui-monospace, monospace; font-size: 11px; position: fixed; bottom: 12px; left: 12px; }
+				#grid {
+					height: 100vh;
+					width: 100vw;
+					display: grid;
+					gap: 4px;
+					background: #000;
+				}
+				#grid.cols-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+				#grid.cols-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+				#grid.cols-4 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
+				.cell { width: 100%; height: 100%; overflow: hidden; background: #000; }
+				/* contain → fit the whole image, never crop. Black letterbox/pillarbox fills any leftover. */
+				.cell img { width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 700ms ease; }
+				.cell img.in { opacity: 1; }
+			</style>
+		</head>
+		<body>
+			if !vm.Enabled {
+				<div id="disabled">slideshow disabled</div>
+			} else {
+				<div id="grid" data-testid="slideshow-grid"
+					class={ slideshowGridClass(vm.Layout) }
+					data-cells={ strconv.Itoa(vm.Layout) }
+					data-secs={ strconv.Itoa(vm.SecsPer) }>
+					for i := 0; i < vm.Layout; i++ {
+						<div class="cell"><img alt=""/></div>
+					}
+				</div>
+				@templ.JSONScript("slideshow-cfg", map[string]int{"cells": vm.Layout, "secs": vm.SecsPer})
+				<script>
+					(async function() {
+						const grid = document.getElementById('grid');
+						const cells = Array.from(grid.querySelectorAll('img'));
+						const cfg = JSON.parse(document.getElementById('slideshow-cfg').textContent);
+						const N = cfg.cells, ms = cfg.secs * 1000;
+
+						let catalog = [];
+						try {
+							const res = await fetch('/api/slideshow/catalog');
+							catalog = (await res.json()).images || [];
+						} catch (e) { console.error('catalog fetch:', e); }
+						if (catalog.length === 0) { return; }
+
+						// Fisher-Yates — fresh shuffle each pass guarantees every image
+						// plays before any repeats (the property the user asked for).
+						function shuffle(arr) {
+							const a = arr.slice();
+							for (let i = a.length - 1; i > 0; i--) {
+								const j = Math.floor(Math.random() * (i + 1));
+								[a[i], a[j]] = [a[j], a[i]];
+							}
+							return a;
+						}
+
+						let queue = [];
+						function take() {
+							if (queue.length < N) queue = queue.concat(shuffle(catalog));
+							return queue.splice(0, N);
+						}
+
+						function paint() {
+							const next = take();
+							next.forEach((url, idx) => {
+								const img = cells[idx];
+								if (!img) return;
+								// Crossfade: load new src, swap on load.
+								const tmp = new Image();
+								tmp.onload = () => {
+									img.classList.remove('in');
+									img.src = url;
+									requestAnimationFrame(() => img.classList.add('in'));
+								};
+								tmp.src = url;
+							});
+						}
+
+						paint();
+						setInterval(paint, ms);
+					})();
+				</script>
+			}
+		</body>
+	</html>
+}
+
+// slideshowGridClass maps layout (1/4/16) to the CSS class that controls
+// the grid template. Kept out of the template so the inline class stays
+// terse.
+func slideshowGridClass(layout int) string {
+	switch layout {
+	case 16:
+		return "cols-4"
+	case 4:
+		return "cols-2"
+	default:
+		return "cols-1"
+	}
+}

@@ -1,0 +1,352 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source "../../internal/jerry/views/**/*.templ";
+@source "../../internal/jerry/**/*.go";
+
+/*
+ * 90s Broadcast palette. Royal blue + bold yellow + magenta accents, with
+ * a condensed display sans for titles, a Bodoni-style serif for headings,
+ * and a tight monospace for data readouts. Inspired by sitcom title cards
+ * and cable-news lower-thirds of the era.
+ */
+@theme {
+  --font-sans:    "Big Shoulders Display", "Fjalla One", Impact, sans-serif;
+  --font-serif:   "Bodoni Moda", "Bodoni 72", "DM Serif Display", serif;
+  --font-mono:    "JetBrains Mono", "Courier New", ui-monospace, monospace;
+
+  --color-bc-royal:   #002366;
+  --color-bc-yellow:  #FFD700;
+  --color-bc-magenta: #FF00B0;
+  --color-bc-cream:   #FFF8E7;
+  --color-bc-shadow:  #000;
+}
+
+html { color-scheme: light dark; }
+html.dark { color-scheme: dark; }
+html:not(.dark) { color-scheme: light; }
+
+/*
+ * Dark mode = "on the air" mode: deep royal blue body, cream text, yellow
+ * accents. Cards keep their existing zinc/slate Tailwind classes but get
+ * tinted toward the broadcast palette via dark-mode overrides below.
+ */
+html.dark body {
+  background-color: var(--color-bc-royal);
+  color: var(--color-bc-cream);
+}
+html:not(.dark) body {
+  background-color: var(--color-bc-cream);
+  color: #14213d;
+}
+
+/*
+ * Tame the existing zinc-card backgrounds so the broadcast bg shows through.
+ * Pages keep their original Templ markup — the look upgrades for free.
+ */
+html.dark .bg-zinc-900\/50,
+html.dark .bg-zinc-900\/55,
+html.dark .bg-zinc-900\/60,
+html.dark .bg-zinc-900\/80 {
+  background-color: rgba(0, 16, 56, 0.65) !important;
+  backdrop-filter: blur(2px);
+}
+html.dark .bg-zinc-950,
+html.dark .bg-zinc-950\/40,
+html.dark .bg-zinc-950\/60 {
+  background-color: rgba(0, 8, 32, 0.85) !important;
+}
+html.dark .border-white\/10 {
+  border-color: rgba(255, 215, 0, 0.35) !important;
+}
+html.dark .text-amber-400,
+html.dark .text-amber-300 {
+  color: var(--color-bc-yellow) !important;
+}
+
+/*
+ * Scanline overlay — semi-transparent horizontal lines for CRT texture.
+ * Apply to a fixed div in Layout above the content but below the nav.
+ */
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  mix-blend-mode: multiply;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.18) 0px,
+    rgba(0, 0, 0, 0.18) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.7;
+}
+html:not(.dark) .scanlines { opacity: 0.35; }
+
+/*
+ * Broadcast card — a color-blocked container with a thick offset shadow.
+ * Use class="broadcast-card" anywhere a section should pop like a title
+ * card. Plays well over the scanlines.
+ */
+.broadcast-card {
+  background-color: var(--color-bc-royal);
+  color: var(--color-bc-cream);
+  border: 4px solid var(--color-bc-yellow);
+  box-shadow: 8px 8px 0 0 var(--color-bc-shadow);
+  padding: 1.5rem;
+  border-radius: 0;
+}
+html:not(.dark) .broadcast-card {
+  background-color: var(--color-bc-cream);
+  color: #14213d;
+  border-color: var(--color-bc-magenta);
+  box-shadow: 6px 6px 0 0 var(--color-bc-yellow);
+}
+
+/*
+ * Lower-third — rectangular status banner anchored at the bottom of the
+ * Now Playing card. Yellow rule top + left, royal-blue gradient body,
+ * monospace data line.
+ */
+.lower-third {
+  background: linear-gradient(90deg, var(--color-bc-royal) 0%, #003088 100%);
+  color: var(--color-bc-cream);
+  border-top: 3px solid var(--color-bc-yellow);
+  border-left: 8px solid var(--color-bc-yellow);
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-mono);
+}
+.lower-third .label {
+  color: var(--color-bc-yellow);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.65rem;
+  display: block;
+  margin-bottom: 0.15rem;
+}
+.lower-third .data {
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+/* Display title — big condensed all-caps, the broadcast feel for headers. */
+.display-title {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.005em;
+  line-height: 0.92;
+}
+.serif-title {
+  font-family: var(--font-serif);
+  font-weight: 700;
+}
+
+/*
+ * Buttons — keep the arcade-cabinet press feel but with broadcast colors:
+ * yellow body, black drop shadow, no rounded corners, bold uppercase.
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  background: var(--color-bc-yellow);
+  color: #000;
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 0 var(--color-bc-shadow);
+  transform: translate(0, 0);
+  transition: transform 80ms ease, box-shadow 80ms ease, background-color 120ms ease;
+  cursor: pointer;
+}
+.btn:hover { background: #ffe55c; }
+.btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 0 var(--color-bc-shadow);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-primary { background: var(--color-bc-yellow); }
+.btn-warning {
+  background: var(--color-bc-magenta);
+  color: #fff;
+  border-color: #fff;
+}
+.btn-warning:hover { background: #ff33c0; }
+.btn-ghost {
+  background: transparent;
+  color: var(--color-bc-cream);
+  border-color: var(--color-bc-cream);
+  box-shadow: 4px 4px 0 0 var(--color-bc-cream);
+}
+html:not(.dark) .btn-ghost {
+  color: #14213d;
+  border-color: #14213d;
+  box-shadow: 4px 4px 0 0 #14213d;
+}
+.btn-sm {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  box-shadow: 3px 3px 0 0 var(--color-bc-shadow);
+}
+.btn-sm:active {
+  box-shadow: 1px 1px 0 0 var(--color-bc-shadow);
+}
+
+/*
+ * Bumper wipe — yellow vertical bar slides L→R in 700ms when the bailout
+ * button hits. Triggered by the global window event 'jerry:bumper'. Uses
+ * keyframe animation; auto-clears via animationend listener in Layout.
+ */
+.bumper-wipe {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--color-bc-yellow) 8%,
+    var(--color-bc-yellow) 92%,
+    transparent 100%);
+  transform: translateX(-110%);
+  display: none;
+}
+body.bumper-active .bumper-wipe {
+  display: block;
+  animation: bumperWipe 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes bumperWipe {
+  0%   { transform: translateX(-110%); }
+  50%  { transform: translateX(0); }
+  100% { transform: translateX(110%); }
+}
+
+/* Markdown-rendered help articles — keep readable in either theme. */
+.help-prose h1 { font-family: var(--font-serif); font-size: 2rem; font-weight: 700; margin: 0 0 0.75rem; }
+.help-prose h2 { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 700; margin: 1.5rem 0 0.5rem; }
+.help-prose h3 { font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; margin: 1.25rem 0 0.5rem; }
+.help-prose p { margin: 0.75rem 0; line-height: 1.6; }
+.help-prose ul, .help-prose ol { margin: 0.75rem 0; padding-left: 1.5rem; line-height: 1.6; }
+.help-prose ul { list-style: disc; }
+.help-prose ol { list-style: decimal; }
+.help-prose li { margin: 0.25rem 0; }
+.help-prose code { font-family: var(--font-mono); font-size: 0.875em; padding: 0.1em 0.35em; border-radius: 0; background: rgba(0,0,0,0.06); }
+html.dark .help-prose code { background: rgba(255, 215, 0, 0.15); color: var(--color-bc-yellow); }
+.help-prose pre { font-family: var(--font-mono); font-size: 0.85em; padding: 1em; border-radius: 0; background: rgba(0,0,0,0.05); overflow-x: auto; margin: 1rem 0; border-left: 4px solid var(--color-bc-yellow); }
+html.dark .help-prose pre { background: rgba(0, 8, 32, 0.5); }
+.help-prose pre code { background: transparent; padding: 0; color: inherit; }
+.help-prose a { color: rgb(217 119 6); text-decoration: underline; }
+html.dark .help-prose a { color: var(--color-bc-yellow); }
+.help-prose strong { font-weight: 700; }
+.help-prose hr { margin: 1.5rem 0; border-color: rgba(0,0,0,0.1); }
+html.dark .help-prose hr { border-color: var(--color-bc-yellow); opacity: 0.4; }
+.help-prose blockquote { border-left: 4px solid var(--color-bc-yellow); padding-left: 1rem; margin: 1rem 0; opacity: 0.85; }
+
+/*
+ * Dashboard hero — the broadcast title-card frame around the Now Playing
+ * section. Cream-on-magenta in light mode, royal-blue-on-yellow in dark.
+ * 6px offset drop shadow gives it the printed-graphic feel from the era.
+ * Sharp corners, padded internally so the lower-third strap can bleed
+ * to the edges via negative margins.
+ */
+.dashboard-hero {
+  background-color: var(--color-bc-cream);
+  color: #14213d;
+  border: 4px solid var(--color-bc-magenta);
+  box-shadow: 6px 6px 0 0 var(--color-bc-yellow);
+  padding: 1.5rem;
+  border-radius: 0;
+}
+html.dark .dashboard-hero {
+  background-color: var(--color-bc-royal);
+  color: var(--color-bc-cream);
+  border-color: var(--color-bc-yellow);
+  box-shadow: 8px 8px 0 0 #000;
+}
+/* Inner control labels stay readable on the new background. */
+html.dark .dashboard-hero .text-zinc-500,
+html.dark .dashboard-hero .text-zinc-600,
+html.dark .dashboard-hero .text-zinc-700,
+html.dark .dashboard-hero .text-zinc-300 {
+  color: rgba(255, 248, 231, 0.85) !important;
+}
+
+/*
+ * Arcade buttons — round, concave, raised. Built to feel tactile on both
+ * mouse and touch. The depress animation moves the cap down + collapses
+ * its shadow, mimicking a 30mm arcade button. Color variants pick the
+ * cap gradient; the bezel stays dark across all of them.
+ */
+.arcade-btn {
+  --cap-hi:    #ff5a5a;
+  --cap-mid:   #cc1818;
+  --cap-lo:    #7a0000;
+  --bezel:     #0e0e0f;
+
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border: 6px solid var(--bezel);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, var(--cap-hi) 0%, var(--cap-mid) 55%, var(--cap-lo) 100%);
+  box-shadow:
+    inset 0 6px 8px rgba(255,255,255,0.18),
+    inset 0 -10px 14px rgba(0,0,0,0.45),
+    0 10px 0 0 var(--bezel),
+    0 14px 24px rgba(0,0,0,0.45);
+  cursor: pointer;
+  transform: translateY(0);
+  transition: transform 90ms cubic-bezier(0.2, 0.7, 0.4, 1),
+              box-shadow 90ms cubic-bezier(0.2, 0.7, 0.4, 1);
+  outline: none;
+}
+.arcade-btn:focus-visible {
+  outline: 3px solid var(--color-bc-yellow);
+  outline-offset: 4px;
+}
+.arcade-btn:hover  { filter: brightness(1.06); }
+.arcade-btn:active,
+.arcade-btn.pressed {
+  transform: translateY(8px);
+  box-shadow:
+    inset 0 4px 6px rgba(255,255,255,0.10),
+    inset 0 -6px 10px rgba(0,0,0,0.55),
+    0 2px 0 0 var(--bezel),
+    0 4px 8px rgba(0,0,0,0.40);
+}
+
+/* Glint highlight to sell the dome curve. Pseudo-spans avoid extra DOM. */
+.arcade-cap-glint {
+  position: absolute;
+  top: 8px; left: 18px;
+  width: 38%; height: 28%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 70%);
+  pointer-events: none;
+}
+
+/* Color variants — same shadow recipe, different cap gradient. */
+.arcade-btn-red    { --cap-hi: #ff6b6b; --cap-mid: #cc1818; --cap-lo: #6a0000; }
+.arcade-btn-blue   { --cap-hi: #5e9bff; --cap-mid: #1a55cc; --cap-lo: #0a2766; }
+.arcade-btn-yellow { --cap-hi: #ffe88a; --cap-mid: #d99500; --cap-lo: #6e4500; }
+.arcade-btn-green  { --cap-hi: #6cff8c; --cap-mid: #1aa83b; --cap-lo: #0a4f1c; }
+.arcade-btn-magenta{ --cap-hi: #ff87dd; --cap-mid: #c81d8a; --cap-lo: #5e0a3f; }
+.arcade-btn-white  { --cap-hi: #ffffff; --cap-mid: #d4d4d8; --cap-lo: #71717a; }
+
+.htmx-indicator { display: none !important; }
+.htmx-request .htmx-indicator { display: flex !important; }

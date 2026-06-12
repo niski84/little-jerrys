@@ -1,0 +1,27 @@
+# Keep the build context small — speeds up `podman build` substantially on
+# every iteration, and keeps secrets / dev artifacts out of the image.
+
+# Build output and runtime state
+sienfeld_smash_deck
+sienfeld_smash_deck.log
+sienfeld_smash_deck.pid
+
+# Node + Go caches
+node_modules
+.cache
+
+# Local state and media (mounted as volumes at runtime, not baked in)
+compose-data
+# NB: data/ is intentionally NOT excluded — `data/tmdb/` is the build-time
+# cache that go:embed pulls in. State files there are tiny and harmless.
+
+# Editor / VCS
+.git
+.idea
+.vscode
+*.swp
+.DS_Store
+
+# Tests / docs that don't affect the binary
+test-results
+playwright-report

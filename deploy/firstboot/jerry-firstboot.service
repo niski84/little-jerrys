@@ -1,0 +1,15 @@
+[Unit]
+Description=Little Jerry's — first-boot setup
+After=network-online.target
+Wants=network-online.target
+Before=jerry.service
+ConditionPathExists=!/var/lib/jerry/.firstboot-done
+
+[Service]
+Type=oneshot
+ExecStart=/opt/jerry/firstboot.sh
+RemainAfterExit=yes
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

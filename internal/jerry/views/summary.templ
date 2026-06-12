@@ -1,0 +1,163 @@
+package views
+
+import (
+	"fmt"
+	"strconv"
+)
+
+// SummaryVM is the /summary page model. ThisWeek is always present (live
+// rollup from snapshot deltas). LastWeek is nil before the first
+// Mon-rollover ever happens.
+type SummaryVM struct {
+	WeekStart string // ISO date — Monday this week began
+	ThisWeek  WeekCardVM
+	LastWeek  *WeekCardVM
+	AllTime   AllTimeVM
+}
+
+// WeekCardVM is one week's playback summary.
+type WeekCardVM struct {
+	Label             string // human-readable date range
+	EpisodesStarted   int
+	EpisodesCompleted int
+	UniqueEpisodes    int
+	MinutesPlayed     float64
+	MinutesPaused     float64
+	Top               []TopEntry
+}
+
+// AllTimeVM are the lifetime totals.
+type AllTimeVM struct {
+	EpisodesStarted   int
+	EpisodesCompleted int
+	UniqueEpisodes    int
+	MinutesPlayed     float64
+	MinutesPaused     float64
+}
+
+// TopEntry is one row in the "most-watched" list on a week card.
+type TopEntry struct {
+	Season  int
+	Episode int
+	Label   string
+	Count   int
+	Path    string // for link to detail / dropdown
+}
+
+templ Summary(vm SummaryVM) {
+	@Layout("Channel 14 — Summary", summaryBody(vm))
+}
+
+templ summaryBody(vm SummaryVM) {
+	<div class="grid grid-cols-1 gap-6">
+		<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55">
+			<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Summary</p>
+			<h1 class="mt-2 display-title text-3xl text-amber-500 dark:text-amber-400">PLAYBACK REPORT</h1>
+			<p class="mt-1 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+				Week of { vm.ThisWeek.Label } · all-time totals at the bottom
+			</p>
+		</section>
+
+		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+			@weekCard(vm.ThisWeek, "This Week", true)
+			if vm.LastWeek != nil {
+				@weekCard(*vm.LastWeek, "Last Week", false)
+			} else {
+				<section class="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50/50 p-8 text-center dark:border-white/10 dark:bg-zinc-900/30">
+					<p class="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Last Week</p>
+					<p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">No prior week to compare yet — first Monday rolls in fresh data.</p>
+				</section>
+			}
+		</div>
+
+		@allTimeCard(vm.AllTime)
+	</div>
+}
+
+templ weekCard(vm WeekCardVM, title string, isCurrent bool) {
+	<section class="rounded-2xl border border-zinc-200 bg-white/85 p-6 dark:border-white/10 dark:bg-zinc-900/55" data-testid={ "week-card-" + slugForCard(title) }>
+		<div class="flex items-baseline justify-between">
+			<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">{ title }</p>
+			if isCurrent {
+				<span class="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">live</span>
+			}
+		</div>
+		<p class="mt-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{ vm.Label }</p>
+
+		<dl class="mt-4 grid grid-cols-2 gap-4">
+			@statTile("Episodes started", strconv.Itoa(vm.EpisodesStarted), "")
+			@statTile("Episodes completed", strconv.Itoa(vm.EpisodesCompleted), "≥ 75% watched")
+			@statTile("Unique titles", strconv.Itoa(vm.UniqueEpisodes), "")
+			@statTile("Minutes played", fmt.Sprintf("%.1f", vm.MinutesPlayed), fmt.Sprintf("paused %.1f min", vm.MinutesPaused))
+		</dl>
+
+		if len(vm.Top) > 0 {
+			<div class="mt-5">
+				<p class="font-mono text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Most-watched</p>
+				<ol class="mt-2 space-y-1">
+					for _, t := range vm.Top {
+						<li class="flex items-center justify-between gap-2 rounded-md bg-zinc-50 px-3 py-1.5 text-sm dark:bg-zinc-950/40">
+							<a href={ topEntryHREF(t) } class="min-w-0 flex-1 truncate hover:text-amber-600 dark:hover:text-amber-400">
+								if t.Season > 0 {
+									<span class="mr-2 font-mono text-[11px] text-amber-600 dark:text-amber-400">{ fmt.Sprintf("S%02dE%02d", t.Season, t.Episode) }</span>
+								}
+								{ t.Label }
+							</a>
+							<span class="rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-700 dark:text-amber-300">{ strconv.Itoa(t.Count) }×</span>
+						</li>
+					}
+				</ol>
+			</div>
+		} else {
+			<p class="mt-5 text-xs text-zinc-500 dark:text-zinc-400">No episodes completed yet.</p>
+		}
+	</section>
+}
+
+templ statTile(label, value, sub string) {
+	<div class="rounded-md border border-zinc-200 bg-zinc-50/60 p-3 dark:border-white/10 dark:bg-zinc-950/40">
+		<dt class="font-mono text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{ label }</dt>
+		<dd class="mt-1 font-mono text-2xl font-bold text-zinc-900 dark:text-zinc-100">{ value }</dd>
+		if sub != "" {
+			<dd class="mt-0.5 font-mono text-[10px] text-zinc-500 dark:text-zinc-500">{ sub }</dd>
+		}
+	</div>
+}
+
+templ allTimeCard(vm AllTimeVM) {
+	<section class="rounded-2xl border border-zinc-200 bg-white/85 p-6 dark:border-white/10 dark:bg-zinc-900/55" data-testid="all-time-card">
+		<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">All-Time</p>
+		<h2 class="mt-2 serif-title text-xl">Lifetime Stats</h2>
+		<dl class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+			@statTile("Episodes started", strconv.Itoa(vm.EpisodesStarted), "")
+			@statTile("Episodes completed", strconv.Itoa(vm.EpisodesCompleted), "")
+			@statTile("Unique titles", strconv.Itoa(vm.UniqueEpisodes), "")
+			@statTile("Minutes played", fmt.Sprintf("%.0f", vm.MinutesPlayed), fmt.Sprintf("≈ %.1f hours", vm.MinutesPlayed/60))
+		</dl>
+		if vm.MinutesPaused > 0 {
+			<p class="mt-3 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+				· paused for { fmt.Sprintf("%.1f", vm.MinutesPaused) } min lifetime
+			</p>
+		}
+	</section>
+}
+
+func slugForCard(s string) string {
+	out := []byte(s)
+	for i, c := range out {
+		if c >= 'A' && c <= 'Z' {
+			out[i] = c + 32
+		}
+		if c == ' ' {
+			out[i] = '-'
+		}
+	}
+	return string(out)
+}
+
+func topEntryHREF(t TopEntry) templ.SafeURL {
+	if t.Season > 0 && t.Episode > 0 {
+		return templ.SafeURL(fmt.Sprintf("/episodes/%d/%d", t.Season, t.Episode))
+	}
+	return templ.SafeURL("/episodes")
+}
