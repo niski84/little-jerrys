@@ -207,8 +207,8 @@ sudo touch "$MNT_BOOT/ssh"
 # Pi can still be SSHed into from a directly-connected laptop. Operator
 # should change this on first login. Generate the hash fresh on each
 # build so we don't ship a stale credential pinned in source control.
-log "generating pi user credentials (user=pi pass=channel14)"
-PI_USER_HASH="$(openssl passwd -6 channel14)"
+log "generating pi user credentials (user=pi pass=jerry)"
+PI_USER_HASH="$(openssl passwd -6 jerry)"
 echo "pi:${PI_USER_HASH}" | sudo tee "$MNT_BOOT/userconf.txt" >/dev/null
 
 # --- 6. Done. Trap will unmount + detach loop. ---

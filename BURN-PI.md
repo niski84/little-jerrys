@@ -78,7 +78,7 @@ sudo ./scripts/build-pi-image.sh
 
 This will:
 1. Download Raspberry Pi OS Lite (~500 MB, first time only)
-2. Cross-compile the Channel 14 binary for Pi
+2. Cross-compile the Little Jerry's binary for Pi
 3. Bake your episode files into the image
 4. Produce `build/little-jerrys-YYYYMMDD.img`
 
@@ -174,7 +174,7 @@ If you ever lock yourself out, the rescue password is `jerry-rescue`.
 
 If the screen is black and nothing's playing:
 
-1. SSH in: `ssh pi@little-jerrys.local` (password: `channel14`)
+1. SSH in: `ssh pi@little-jerrys.local` (password: `jerry`)
 2. Check logs: `sudo journalctl -u jerry -n 50`
 3. Check firstboot: `sudo cat /var/log/jerry-firstboot.log`
 

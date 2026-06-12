@@ -73,7 +73,7 @@ func Summary(vm SummaryVM) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Layout("Channel 14 — Summary", summaryBody(vm)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Layout("Little Jerry's — Summary", summaryBody(vm)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -109,7 +109,7 @@ func summaryBody(vm SummaryVM) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.ThisWeek.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 57, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 57, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -178,7 +178,7 @@ func weekCard(vm WeekCardVM, title string, isCurrent bool) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue("week-card-" + slugForCard(title))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 78, Col: 157}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 78, Col: 157}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 		if templ_7745c5c3_Err != nil {
@@ -191,7 +191,7 @@ func weekCard(vm WeekCardVM, title string, isCurrent bool) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 80, Col: 101}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 80, Col: 101}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -214,7 +214,7 @@ func weekCard(vm WeekCardVM, title string, isCurrent bool) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(vm.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 85, Col: 83}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 85, Col: 83}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -257,7 +257,7 @@ func weekCard(vm WeekCardVM, title string, isCurrent bool) templ.Component {
 				var templ_7745c5c3_Var8 templ.SafeURL
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(topEntryHREF(t))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 100, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 100, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -275,7 +275,7 @@ func weekCard(vm WeekCardVM, title string, isCurrent bool) templ.Component {
 					var templ_7745c5c3_Var9 string
 					templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("S%02dE%02d", t.Season, t.Episode))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 102, Col: 133}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 102, Col: 133}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 					if templ_7745c5c3_Err != nil {
@@ -289,7 +289,7 @@ func weekCard(vm WeekCardVM, title string, isCurrent bool) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(t.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 104, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 104, Col: 17}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -302,7 +302,7 @@ func weekCard(vm WeekCardVM, title string, isCurrent bool) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(t.Count))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 106, Col: 152}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 106, Col: 152}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -359,7 +359,7 @@ func statTile(label, value, sub string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 119, Col: 101}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 119, Col: 101}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -372,7 +372,7 @@ func statTile(label, value, sub string) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 120, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 120, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -390,7 +390,7 @@ func statTile(label, value, sub string) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(sub)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 122, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 122, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -462,7 +462,7 @@ func allTimeCard(vm AllTimeVM) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f", vm.MinutesPaused))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `summary.templ`, Line: 139, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/jerry/views/summary.templ`, Line: 139, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {

@@ -37,11 +37,11 @@ through the forced-password-change flow.
 In a real emergency:
 
 ```
-sudo systemctl stop sienfeld
+sudo systemctl stop jerry
 sudo nano /media/usb/.jerry/state.json
 # delete the admin_password_hash field
 # set password_is_default: true
-sudo systemctl start sienfeld
+sudo systemctl start jerry
 ```
 
 The next login will use `admin` / `admin`.

@@ -11,7 +11,7 @@ var (
 	// BrandTenantName is the display name shown in nav, page titles, and
 	// log lines. Default is the generic project name; per-venue operators
 	// override via TENANT_NAME in jerry.conf on the USB drive.
-	BrandTenantName = "Channel 14"
+	BrandTenantName = "Little Jerry's"
 	BrandLogoURL    = "/static/img/logo.png"
 )
 
@@ -23,8 +23,6 @@ func BrandTitle(title string) string {
 	if BrandTenantName == "Little Jerry's" {
 		return title
 	}
-	// Replace anywhere — covers the page title in <title>, the meta
-	// description, and any inline copy that uses the same prefix.
 	return replaceFirst(title, "Little Jerry's", BrandTenantName)
 }
 

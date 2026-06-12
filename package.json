@@ -1,5 +1,5 @@
 {
-  "name": "sienfeld_smash_deck",
+  "name": "little-jerrys",
   "private": true,
   "devDependencies": {
     "@tailwindcss/cli": "^4.0.14",
