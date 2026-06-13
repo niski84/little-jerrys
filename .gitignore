@@ -1,6 +1,6 @@
-# Binaries
-sienfeld_smash_deck
-little-jerrys
+# Binaries (root-level compiled output only)
+/sienfeld_smash_deck
+/little-jerrys
 
 # Media files (too large for git)
 *.mp4
