@@ -61,12 +61,21 @@ type SSID struct {
 	InUse  bool
 }
 
-// Scan returns visible WiFi networks. Stub on non-NM hosts.
+// Scan returns visible WiFi networks from NetworkManager's cached scan list.
+// Stub on non-NM hosts.
+//
+// It uses `--rescan no` deliberately. Forcing `--rescan yes` makes the WiFi
+// card stop, sweep every channel, and re-associate — which drops the active
+// data path for several seconds on each call. When this method was polled by
+// the WiFi-config admin page, that produced periodic whole-host connectivity
+// outages. NetworkManager already refreshes its scan cache on its own cadence
+// (and on boot / disconnect), so the cached list is accurate enough for a
+// config UI without ever interrupting connectivity.
 func (m *Manager) Scan(ctx context.Context) ([]SSID, error) {
 	if !m.Available() {
 		return nil, fmt.Errorf("nmcli not available on this host")
 	}
-	out, err := m.run(ctx, "-t", "-f", "IN-USE,SSID,SIGNAL", "device", "wifi", "list", "--rescan", "yes")
+	out, err := m.run(ctx, "-t", "-f", "IN-USE,SSID,SIGNAL", "device", "wifi", "list", "--rescan", "no")
 	if err != nil {
 		return nil, err
 	}
@@ -230,12 +239,23 @@ func (m *Manager) HasInternet(ctx context.Context) bool {
 		!strings.Contains(string(out), "limited")
 }
 
+// OnPi reports whether the host has a wlan0 interface (Pi hardware).
+// Returns false on dev machines where the AP loop must not run.
+func (m *Manager) OnPi() bool {
+	_, err := net.InterfaceByName("wlan0")
+	return err == nil
+}
+
 // Watcher periodically checks connectivity and toggles AP mode as needed.
 // Boot flow: if no WiFi after 30s grace period → start AP. If client mode
 // reconnects later → stop AP.
 func (m *Manager) Watcher(ctx context.Context, gracePeriod time.Duration) {
 	if !m.Available() {
 		fmt.Printf("[network] nmcli unavailable — captive portal disabled\n")
+		return
+	}
+	if !m.OnPi() {
+		fmt.Printf("[network] wlan0 not found — AP watcher disabled (not running on Pi)\n")
 		return
 	}
 	if err := m.EnsureAPProfile(ctx); err != nil {

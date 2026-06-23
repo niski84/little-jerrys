@@ -193,12 +193,19 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	})
 
 	netMgr := network.New()
-	if netMgr.Available() {
+	// The captive-portal Watcher actively manages the host's WiFi (AP-mode
+	// switching, connectivity polling) and is only safe on a dedicated Pi
+	// appliance. It is OFF unless jerry.conf sets CAPTIVE_PORTAL=true, so a
+	// fresh install on any normal machine never touches networking.
+	if uc.CaptivePortal && netMgr.Available() {
 		// 10s grace: just long enough for NetworkManager to try a DHCP
 		// handshake against any saved client SSID. After that, if we still
 		// don't have client connectivity, broadcast the AP so the staff
 		// can configure us from a phone.
+		fmt.Printf("[network] captive portal ENABLED — managing WiFi via nmcli\n")
 		go netMgr.Watcher(ctx, 10*time.Second)
+	} else {
+		fmt.Printf("[network] captive portal disabled (set CAPTIVE_PORTAL=true in jerry.conf to enable)\n")
 	}
 
 	// TMDB cache is read-only — populated at build time by --prefetch-tmdb.
