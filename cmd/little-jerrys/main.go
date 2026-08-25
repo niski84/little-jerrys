@@ -58,12 +58,10 @@ func main() {
 	}
 	defer app.Close()
 
-	// Kick off playback. If a saved position exists, mpv resumes there;
-	// otherwise the random rotation starts fresh. If there's no media yet,
-	// this fails loudly — that's fine in dev.
-	if err := app.PlayCurrent(); err != nil {
-		fmt.Printf("[little-jerrys] initial play warning: %v\n", err)
-	}
+	// Start the configured mode exactly once after boot initialization. If a
+	// saved position exists, playback resumes there; otherwise the random
+	// rotation starts fresh. Off-hours starts the configured slideshow.
+	app.StartCurrentMode()
 
 	// Auto-updater: checks GitHub Releases on boot (after 2 min) and once
 	// more each day; applies during the safe window (default 02:00–04:00).

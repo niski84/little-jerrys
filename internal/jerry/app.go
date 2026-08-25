@@ -14,9 +14,9 @@ import (
 	"github.com/niski84/little-jerrys/internal/clipart"
 	"github.com/niski84/little-jerrys/internal/eventlog"
 	"github.com/niski84/little-jerrys/internal/gpio"
+	"github.com/niski84/little-jerrys/internal/jerry/views"
 	"github.com/niski84/little-jerrys/internal/network"
 	"github.com/niski84/little-jerrys/internal/player"
-	"github.com/niski84/little-jerrys/internal/jerry/views"
 	"github.com/niski84/little-jerrys/internal/playlist"
 	"github.com/niski84/little-jerrys/internal/schedule"
 	"github.com/niski84/little-jerrys/internal/tmdb"
@@ -337,10 +337,10 @@ func (a *App) mediaWatcher(ctx context.Context, interval time.Duration) {
 }
 
 // modeWatcher ticks at interval, evaluates the configured schedules, and
-// switches mode if reality doesn't match. Initial state is set immediately
-// on first tick so boot lands in the right mode.
+// switches mode if reality doesn't match. The initial mode is started by
+// StartCurrentMode after boot; starting it here races main's startup path and
+// can issue two mpv loadfile commands.
 func (a *App) modeWatcher(ctx context.Context, interval time.Duration) {
-	a.applyDesiredMode(false)
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
@@ -351,6 +351,12 @@ func (a *App) modeWatcher(ctx context.Context, interval time.Duration) {
 			a.applyDesiredMode(false)
 		}
 	}
+}
+
+// StartCurrentMode starts the configured playback/slideshow mode exactly once
+// after boot initialization has completed.
+func (a *App) StartCurrentMode() {
+	a.applyDesiredMode(true)
 }
 
 // applyDesiredMode switches the player between playback and slideshow when
