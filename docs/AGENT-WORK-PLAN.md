@@ -78,9 +78,13 @@ These dirty-tree builds are smoke artifacts, not deployable clean releases.
   following `MAINTAINER-EXECUTOR.md`. Existing saved legacy binary is only a
   binary recovery copy, not a complete config/state backup or executor-approved
   clean artifact. Never weaken provenance checks to accept its dirty metadata.
+  App-only bootstrap completed after operator approval; see
+  `DEPLOYMENT-2026-09-19.md`. Executor artifact staging/provisioning remains pending.
 - [ ] Obtain exact migration/interruption approval before any Pi mutation; retain
   binary/config/state recovery copies and disable conflicting legacy auto-update
   through the reviewed procedure.
+  Approval received and app migration performed with full recovery snapshots;
+  this does not approve enabling unattended fleet deployment lanes.
 - [ ] Provision retained-event auth and governed executor, verify clean installed
   revision/device identity, then perform approved playback/recovery checks.
 - [ ] Complete operator-selected real draft PR, human merge and exact-version
@@ -102,5 +106,6 @@ Two fresh-context `gpt-5.6-luna` workers started with medium reasoning:
 Coordinator removed interstitial setup claims, added regression coverage and a
 repeatable loopback browser fixture, corrected mobile overflow, and regenerated
 templates/CSS. Desktop/mobile browser checks and final combined race/vet/ARM64
-verification passed, recorded in `MIGRATION-CHECKPOINT.md`. The approved local
-follow-up is complete. Live acceptance remains pending; no workers remain active.
+verification passed, recorded in `MIGRATION-CHECKPOINT.md`. The approved app
+commit/deploy also completed; see `DEPLOYMENT-2026-09-19.md`. Remaining portfolio
+executor/PR acceptance is not complete; no workers remain active.

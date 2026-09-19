@@ -5,6 +5,9 @@ Patch Hatch's governed deployment/rollback lane. It is **not** started by the ap
 image builder or legacy auto-updater. The provided systemd unit is a template,
 not an enabled service. No live appliance has been changed by these tests.
 
+The app-only bootstrap was subsequently approved and deployed on 2026-09-19;
+see `DEPLOYMENT-2026-09-19.md`. The executor itself remains uninstalled/inactive.
+
 ## Boundary
 
 - Exactly one configured target/device, fixed repository `niski84/little-jerrys`.

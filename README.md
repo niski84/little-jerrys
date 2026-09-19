@@ -3,8 +3,8 @@
 **This is the one active project.** Channel Eleven, Channel Seven, Channel 14
 and Seinfeld are historical names for the same appliance. Start with
 [the canonical handoff and verified Pi details](AGENT-HANDOFF.md) before testing
-or deploying. The live Pi still runs the archived predecessor and requires a
-reviewed migration; changing the name alone does not migrate it.
+or deploying. The live Pi was migrated to the canonical app on 2026-09-19;
+see [the deployment record](docs/DEPLOYMENT-2026-09-19.md).
 
 
 ![Little Jerry's demo](docs/little-jerrys-demo.gif)

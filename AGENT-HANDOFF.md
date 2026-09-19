@@ -2,6 +2,12 @@
 
 Updated 2026-09-19. **One product, one active repository: Little Jerry's.**
 
+**Current live status:** canonical app deployed from clean commit
+`e4d84769081ede8e9fb67b54f6ea381a9e94dae0`; health, retained export and real
+HDMI/audio/advancing playback passed. Legacy auto-update is disabled; the separate
+maintainer executor remains inactive. See `docs/DEPLOYMENT-2026-09-19.md` for
+exact artifact and full recovery snapshot. Pre-bootstrap evidence below is historical.
+
 | Name | Meaning |
 |---|---|
 | Little Jerry's / `little-jerrys` | Canonical product, checkout and GitHub repository: `niski84/little-jerrys` |
@@ -25,9 +31,9 @@ account, paths, cookie or systemd unit merely to change the product name.
 - Do **not** use `.30` (a different/older Pi), or the stale PiKVM identity formerly
   associated with `.40`. DHCP may change; confirm MAC and application identity.
 
-## Installed build is still the predecessor
+## Historical installed build before the approved bootstrap
 
-The live health response is `service:sienfeld_smash_deck`, `status:ok`, `version:dev`.
+The pre-bootstrap health response was `service:sienfeld_smash_deck`, `status:ok`, `version:dev`.
 An SSH read-only check confirmed the service active and copied its binary locally
 without interrupting playback. Embedded Go metadata reports:
 
@@ -59,11 +65,14 @@ updater behavior. Media files in the predecessor are not migration source code.
 
 ## Continuing the Patch Hatch pilot
 
+The app/bootstrap step below is now complete. Retained export works locally on
+the Pi with authenticated access. Provisioning credentials/tunnel to Patch Hatch,
+the separate root executor and its deployment lane is still separate work.
+
 Use the existing portfolio entry `little-jerrys`, ID
 `ccce9a56-6e20-4cea-b659-5d813399affa`; do not import the retired repository.
-Read-only health observations can use the verified app URL now. Authenticated
-retained events, a clean installed revision and the separate trusted executor
-are not yet available on this legacy deployment.
+Read-only health observations can use the verified app URL. Do not interpret the
+app deployment as approval to enable unattended deployments or change fleet gates.
 
 1. Reconcile the unique legacy functionality into a reviewed canonical candidate;
    run unit/race, isolated browser, ARM64 build and playback/recovery checks.

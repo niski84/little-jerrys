@@ -1,8 +1,9 @@
 # Migration checkpoint — 2026-09-19
 
-**Local follow-up complete: three review findings fixed; isolated desktop/mobile
-browser and final combined verification passed. Nothing was installed on the Pi during
-reconciliation. All source changes remain uncommitted.**
+**App committed and deployed after operator approval.** Clean release
+`e4d84769081ede8e9fb67b54f6ea381a9e94dae0` passed live health, retained export and
+HDMI/audio/advancing playback. See [the deployment record](DEPLOYMENT-2026-09-19.md).
+The following local-test evidence describes the candidate before that commit.
 
 ## Current candidate
 
@@ -62,14 +63,16 @@ Final post-fix commands all exited 0:
   `./cmd/little-jerrys` and `./cmd/maintainer-executor`, with outputs in
   `/tmp/little-jerrys-final-m6QePH/`.
 
-Go executable: `/usr/local/go/bin/go`. Source remains dirty atop `c222471`.
-Live migration has not occurred; these smoke builds are not release artifacts.
+Go executable: `/usr/local/go/bin/go`. Those tests ran on the dirty candidate
+atop `c222471`; those smoke binaries were not deployed. A subsequent clean
+commit was cross-built with `-tags pi -buildvcs=true` and deployed.
 
 ## Resume here — no broad rescan needed
 
-1. Prepare the reviewed bootstrap diff and backup/rollback procedure. The running
-   Pi has dirty legacy build metadata, so it cannot be staged as a clean rollback
-   artifact by weakening the executor checks. Migration approval remains separate.
+1. App/bootstrap is complete; do not repeat the one-time script. Next portfolio
+   phase is separate executor/tunnel provisioning and human-approved real PR /
+   deployment acceptance. The retained legacy recovery binary still has dirty
+   metadata: never stage it by weakening executor checks.
 
 Known acceptance limits: physical recovery Wi-Fi and removable-filesystem rename
 support remain untested. Fresh-image/firstboot work is deferred; this candidate
