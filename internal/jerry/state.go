@@ -18,8 +18,9 @@ type State struct {
 	CommercialsEnabled bool           `json:"commercials_enabled"`
 
 	// Per-commercial weights and blacklist — same model as episodes.
-	CommercialWeights   map[string]int `json:"commercial_weights"`
-	CommercialBlacklist []string       `json:"commercial_blacklist"`
+	CommercialWeights   map[string]int       `json:"commercial_weights"`
+	CommercialBlacklist []string             `json:"commercial_blacklist"`
+	CommercialCampaigns []CommercialCampaign `json:"commercial_campaigns,omitempty"`
 
 	// Broadcast-station-style scheduling.
 	BreakAfterMinutes   int `json:"break_after_minutes"`   // insert break every N minutes of episode time
@@ -30,12 +31,16 @@ type State struct {
 	SessionKey         string   `json:"session_key"` // HMAC signing key for stateless cookies; generated once on first boot
 	WebhookOutbound    []string `json:"webhook_outbound"`
 	LoopGuardThreshold int      `json:"loop_guard_threshold"`
+	QuietModeEnabled   bool     `json:"quiet_mode_enabled"`
+	QuietStart         string   `json:"quiet_start"`
+	QuietEnd           string   `json:"quiet_end"`
+	VolumeLevel        int      `json:"volume_level"` // 1–10, mapped to 10–100% mpv volume
 
 	// Resume-from-position. When the Pi powers off at night and boots back
 	// up the next morning, mpv loads LastTrack at LastPositionSecs so the
 	// rotation picks up mid-episode rather than restarting cold.
-	LastTrack         string  `json:"last_track,omitempty"`
-	LastPositionSecs  float64 `json:"last_position_secs,omitempty"`
+	LastTrack        string  `json:"last_track,omitempty"`
+	LastPositionSecs float64 `json:"last_position_secs,omitempty"`
 
 	// PlayCounts is the *started* count — incremented every time PlayNext
 	// loads a file, regardless of how long the user actually watches.
@@ -90,6 +95,17 @@ type State struct {
 	QueueItems []QueueSnapshotItem `json:"queue_items"`
 }
 
+// CommercialCampaign groups uploaded spots into an advertiser/campaign
+// rotation. Files are absolute paths so the existing playlist engine can use
+// them without introducing a second media catalog.
+type CommercialCampaign struct {
+	ID      string   `json:"id"`
+	Name    string   `json:"name"`
+	Enabled bool     `json:"enabled"`
+	Weight  int      `json:"weight"`
+	Files   []string `json:"files"`
+}
+
 // WeekRollup captures the playback summary for a completed week. Frozen
 // at week-rollover time so it isn't recomputed on every render.
 type WeekRollup struct {
@@ -106,7 +122,7 @@ type WeekRollup struct {
 // the engine's queue without leaking the playlist package's types into
 // the state file.
 type QueueSnapshotItem struct {
-	Kind    string  `json:"kind"`     // "episode" | "commercial"
+	Kind    string  `json:"kind"` // "episode" | "commercial"
 	Path    string  `json:"path"`
 	EstSecs float64 `json:"est_secs"`
 }
@@ -135,6 +151,7 @@ func DefaultState() State {
 		CommercialsEnabled:  false,
 		CommercialWeights:   map[string]int{},
 		CommercialBlacklist: []string{},
+		CommercialCampaigns: []CommercialCampaign{},
 		BreakAfterMinutes:   22, // one break per ~22-min sitcom episode
 		CommercialsPerBreak: 2,  // 90s broadcast feel: 2 ads back-to-back
 		PlayCounts:          map[string]int{},
@@ -147,6 +164,9 @@ func DefaultState() State {
 		// bcrypt("admin") — generated at runtime in NewApp on first boot.
 		PasswordIsDefault:  true,
 		LoopGuardThreshold: 3,
+		QuietStart:         "22:00",
+		QuietEnd:           "07:00",
+		VolumeLevel:        5,
 	}
 }
 
@@ -176,6 +196,15 @@ func (s *Store) load() error {
 	}
 	if st.Weights == nil {
 		st.Weights = map[string]int{}
+	}
+	if st.VolumeLevel < 1 || st.VolumeLevel > 10 {
+		st.VolumeLevel = 5
+	}
+	if st.QuietStart == "" {
+		st.QuietStart = "22:00"
+	}
+	if st.QuietEnd == "" {
+		st.QuietEnd = "07:00"
 	}
 	if st.CommercialWeights == nil {
 		st.CommercialWeights = map[string]int{}
@@ -225,9 +254,13 @@ func (s *Store) load() error {
 
 // Save writes the current state to disk atomically.
 func (s *Store) Save() error {
-	s.mu.RLock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.saveLocked()
+}
+
+func (s *Store) saveLocked() error {
 	data, err := json.MarshalIndent(s.cur, "", "  ")
-	s.mu.RUnlock()
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)
 	}
@@ -249,6 +282,15 @@ func (s *Store) Get() State {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	cp := s.cur
+	cp.CommercialCampaigns = make([]CommercialCampaign, len(s.cur.CommercialCampaigns))
+	for i, campaign := range s.cur.CommercialCampaigns {
+		cp.CommercialCampaigns[i] = campaign
+		cp.CommercialCampaigns[i].Files = append([]string(nil), campaign.Files...)
+	}
+	cp.Schedules = append([]schedule.Schedule(nil), s.cur.Schedules...)
+	for i := range cp.Schedules {
+		cp.Schedules[i].Days = append([]int(nil), s.cur.Schedules[i].Days...)
+	}
 	cp.Blacklist = append([]string(nil), s.cur.Blacklist...)
 	cp.Weights = make(map[string]int, len(s.cur.Weights))
 	for k, v := range s.cur.Weights {
@@ -323,7 +365,7 @@ func onlyEpisodeKeys(in []string) []string {
 // Update applies a mutator under the write lock and persists.
 func (s *Store) Update(fn func(*State)) error {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	fn(&s.cur)
-	s.mu.Unlock()
-	return s.Save()
+	return s.saveLocked()
 }

@@ -26,6 +26,7 @@ type DashboardVM struct {
 
 	// Cumulative play counts keyed by file path.
 	PlayCounts map[string]int
+	VolumeLevel int
 }
 
 // QueueRow is one row in the visible playlist editor. Index is the row's
@@ -35,6 +36,7 @@ type QueueRow struct {
 	Path           string
 	Label          string  // friendly label (TMDB title if known, else basename)
 	IsCommercial   bool
+	IsNowPlaying   bool    // current HDMI item; not part of the editable queue
 	EstSecs        float64
 	PlayCount      int // raw "started" count (incremented on every load)
 	CompletedCount int // "actually watched" count (75% threshold)
@@ -44,8 +46,6 @@ templ Dashboard(vm DashboardVM) {
 	@Layout("Little Jerry's — Now Playing", dashboardBody(vm))
 }
 
-// updateBanner polls /api/update/status every 30s and shows a countdown
-// banner when a maintenance restart is pending.
 templ UpdateBanner() {
 	<div
 		id="update-banner"
@@ -161,6 +161,16 @@ templ dashboardBody(vm DashboardVM) {
 							— nothing yet —
 						}
 					</h1>
+					<div class="mt-2 flex flex-wrap items-center gap-2 text-xs" data-testid="playback-status">
+						if vm.NowPlaying.NowPlaying == "" {
+							<span class="rounded-full bg-zinc-200 px-2 py-1 font-mono uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">Waiting for media</span>
+						} else if vm.NowPlaying.Paused {
+							<span class="rounded-full bg-amber-100 px-2 py-1 font-mono uppercase tracking-wide text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Paused</span>
+						} else {
+							<span class="rounded-full bg-emerald-100 px-2 py-1 font-mono uppercase tracking-wide text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">Playing</span>
+						}
+						<span class="text-zinc-500 dark:text-zinc-400">Controls affect the HDMI display.</span>
+					</div>
 					<p id="live-paused" class="mt-1 text-sm text-rose-500 dark:text-rose-400" style={ pausedStyle(vm.NowPlaying.Paused) } data-testid="live-paused">Paused</p>
 					if vm.NowSynopsis != "" {
 						<p class="mt-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300" data-testid="now-synopsis">{ vm.NowSynopsis }</p>
@@ -194,6 +204,15 @@ templ dashboardBody(vm DashboardVM) {
 						<button class="btn btn-ghost btn-sm" data-seek="30" data-testid="btn-seek-fwd-30">+30s</button>
 						<button class="btn btn-ghost" hx-post="/api/button/press" hx-swap="none" data-testid="btn-simulate-gpio">Simulate GPIO</button>
 					</div>
+					<div class="mt-3 flex flex-wrap items-center gap-2" data-testid="volume-control">
+						<span class="font-mono text-[10px] uppercase tracking-wider text-amber-400">Vol</span>
+						<div class="inline-grid grid-cols-10 gap-0.5">
+							for level := 1; level <= 10; level++ {
+								<button type="button" class={ "btn btn-xs h-6 min-h-0 w-6 p-0 text-[10px] " + volumeButtonClass(level, vm.VolumeLevel) } data-volume={ strconv.Itoa(level) } data-testid={ "volume-" + strconv.Itoa(level) }>{ strconv.Itoa(level) }</button>
+							}
+						</div>
+						<span id="volume-level" class="font-mono text-[10px] text-zinc-400">{ intStr(vm.VolumeLevel) }/10</span>
+					</div>
 				</div>
 			</div>
 		</section>
@@ -207,7 +226,7 @@ templ dashboardBody(vm DashboardVM) {
 				<div class="flex justify-between"><dt class="text-zinc-500 dark:text-zinc-400">Weighted</dt><dd class="font-mono">{ strconv.Itoa(vm.Stats.WeightedCount) }</dd></div>
 				<div class="flex justify-between"><dt class="text-zinc-500 dark:text-zinc-400">Queue remaining</dt><dd class="font-mono" data-testid="queue-remaining">{ strconv.Itoa(vm.Stats.QueueRemaining) }</dd></div>
 				<div class="flex justify-between">
-					<dt class="text-zinc-500 dark:text-zinc-400">Commercials</dt>
+					<dt class="text-zinc-500 dark:text-zinc-400">Ad schedule</dt>
 					<dd class="font-mono">
 						if vm.Stats.CommercialsEnabled {
 							<span class="text-emerald-600 dark:text-emerald-400">on</span>
@@ -224,17 +243,18 @@ templ dashboardBody(vm DashboardVM) {
 		<section class="lg:col-span-3 rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55">
 			<div class="flex items-center justify-between gap-4">
 				<div>
-					<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Up next</p>
+					<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Playback order</p>
 					<h2 class="mt-1 text-xl font-bold">Playlist</h2>
+					<p class="mt-1 max-w-xl text-xs text-zinc-500 dark:text-zinc-400">Refresh after changing weights or blocked episodes to build the next rotation.</p>
 				</div>
 				<form method="POST" action="/api/queue/regenerate" hx-post="/api/queue/regenerate" hx-on::after-request="window.location.reload()">
-					<button class="btn btn-warning btn-sm" data-testid="btn-regenerate">Regenerate (apply weights)</button>
+					<button class="btn btn-warning btn-sm" data-testid="btn-regenerate">Refresh playlist</button>
 				</form>
 			</div>
 
 			if len(vm.Queue) == 0 {
 				<p class="mt-6 rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-white/10" data-testid="queue-empty">
-					Queue is empty. Hit Regenerate.
+					No upcoming items.
 				</p>
 			} else {
 				<ol
@@ -313,6 +333,8 @@ templ dashboardBody(vm DashboardVM) {
 					document.getElementById('live-mode').textContent = s.mode || '—';
 					document.getElementById('live-paused').style.display = s.paused ? '' : 'none';
 					lastDuration = s.duration_secs || 0;
+					const volumeLabel = document.getElementById('volume-level');
+					if (volumeLabel && s.volume_level) volumeLabel.textContent = s.volume_level + ' / 10';
 					const pct = lastDuration > 0 ? Math.max(0, Math.min(100, 100 * s.position_secs / lastDuration)) : 0;
 					document.getElementById('seek-fill').style.width = pct + '%';
 					// File change: swap the video src in place (no page reload).
@@ -368,6 +390,17 @@ templ dashboardBody(vm DashboardVM) {
 				});
 			}
 
+			document.querySelectorAll('button[data-volume]').forEach(function (btn) {
+				btn.addEventListener('click', async function () {
+					const r = await fetch('/api/volume', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+						body: new URLSearchParams({ level: btn.dataset.volume || '5' }),
+					});
+					if (r.ok) tick();
+				});
+			});
+
 			// Relative-seek buttons: ±10s / ±30s.
 			document.querySelectorAll('button[data-seek]').forEach(function (btn) {
 				btn.addEventListener('click', async function () {
@@ -407,8 +440,10 @@ templ QueueRowView(row QueueRow) {
 			aria-label="Drag handle"
 		>⋮⋮</button>
 		<div class="min-w-0 flex-1">
-			if row.IsCommercial {
-				<p class="font-mono text-xs"><span class="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300">break</span> { row.Label }</p>
+				if row.IsNowPlaying {
+					<p class="truncate font-mono text-xs font-bold text-emerald-700 dark:text-emerald-300"><span class="mr-2 rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wider">now playing</span>{ row.Label }</p>
+				} else if row.IsCommercial {
+					<p class="font-mono text-xs"><span class="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300">break</span> { row.Label }</p>
 			} else {
 				<p class="truncate font-mono text-xs text-zinc-700 dark:text-zinc-200">{ row.Label }</p>
 			}
@@ -424,6 +459,7 @@ templ QueueRowView(row QueueRow) {
 				}
 			</p>
 		</div>
+		if !row.IsNowPlaying {
 		<form method="POST" action="/api/queue/remove" hx-post="/api/queue/remove" hx-on::after-request="window.location.reload()" class="inline-flex">
 			<input type="hidden" name="index" value={ strconv.Itoa(row.Index) }/>
 			if row.IsCommercial {
@@ -432,6 +468,7 @@ templ QueueRowView(row QueueRow) {
 				<button class="btn btn-ghost btn-sm" data-testid={ "btn-remove-episode-" + strconv.Itoa(row.Index) } title="Remove from queue">✕</button>
 			}
 		</form>
+		}
 	</li>
 }
 
@@ -444,4 +481,11 @@ func fmtSecs(s float64) string {
 	mins := total / 60
 	secs := total % 60
 	return fmt.Sprintf("%d:%02d", mins, secs)
+}
+
+func volumeButtonClass(level, selected int) string {
+	if level == selected {
+		return "btn-warning"
+	}
+	return "btn-ghost"
 }

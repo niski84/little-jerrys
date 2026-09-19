@@ -11,6 +11,15 @@ type CommercialsVM struct {
 	CommercialsPerBreak int
 	Locked              bool
 	SavedMessage        string
+	Campaigns           []CampaignVM
+}
+
+type CampaignVM struct {
+	ID      string
+	Name    string
+	Enabled bool
+	Weight  int
+	Files   int
 }
 
 templ Commercials(vm CommercialsVM) {
@@ -79,6 +88,36 @@ templ commercialsBody(vm CommercialsVM) {
 					<button class="btn btn-primary" disabled?={ vm.Locked } data-testid="save-commercial-schedule">Save schedule</button>
 				</div>
 			</form>
+		</section>
+
+		<section class="rounded-2xl border border-white/10 bg-zinc-900/50 p-8">
+			<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-400">Upload + campaigns</p>
+			<h2 class="mt-2 text-xl font-bold">Put your spots on the air</h2>
+			<p class="mt-1 text-sm text-zinc-400">Upload a video commercial and optionally assign it to a named campaign. Campaigns can be switched on/off and weighted as a group.</p>
+			<form method="POST" action="/commercials/upload" enctype="multipart/form-data" class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
+				<input type="file" name="commercial_file" accept=".mp4,.mkv,.mov,.avi,.m4v,.webm" required class="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm" />
+				<input type="text" name="campaign" placeholder="Campaign name (optional)" class="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm" />
+				<button class="btn btn-primary" disabled?={ vm.Locked }>Upload commercial</button>
+			</form>
+			<form method="POST" action="/commercials/campaigns" class="mt-3 flex flex-wrap gap-3">
+				<input type="text" name="name" placeholder="New campaign name" required class="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm" />
+				<input type="number" name="weight" min="1" max="10" value="1" class="w-24 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm" />
+				<button class="btn btn-sm" disabled?={ vm.Locked }>Create campaign</button>
+			</form>
+			if len(vm.Campaigns) > 0 {
+				<form method="POST" action="/commercials/campaigns/save" class="mt-5 space-y-2">
+					for _, c := range vm.Campaigns {
+						<div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-zinc-950/40 px-3 py-2">
+							<div><span class="font-mono text-sm text-zinc-200">{ c.Name }</span><span class="ml-2 text-xs text-zinc-500">{ intStr(c.Files) } spot{ pluralS(c.Files) }</span></div>
+							<div class="flex items-center gap-3 text-xs text-zinc-400">
+								<label><input type="checkbox" name={ "ce:" + c.ID } value="1" checked?={ c.Enabled } disabled?={ vm.Locked } /> on air</label>
+								<label>weight <input type="number" min="1" max="10" name={ "cwmp:" + c.ID } value={ intStr(c.Weight) } disabled?={ vm.Locked } class="ml-1 w-16 rounded border border-white/10 bg-zinc-950 px-2 py-1 text-right" /></label>
+							</div>
+						</div>
+					}
+					<button class="btn btn-sm" disabled?={ vm.Locked }>Save campaigns</button>
+				</form>
+			}
 		</section>
 
 		<section class="rounded-2xl border border-white/10 bg-zinc-900/50 p-8">

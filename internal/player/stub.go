@@ -9,9 +9,9 @@ import (
 // Stub is a development-time Player that logs commands instead of driving
 // mpv. Used when developing on non-Pi machines without a TV attached.
 type Stub struct {
-	mu       sync.Mutex
-	current  string
-	paused   bool
+	mu        sync.Mutex
+	current   string
+	paused    bool
 	startedAt time.Time
 	startPos  time.Duration
 }
@@ -98,6 +98,13 @@ func (s *Stub) Volume(pct int) error {
 	return nil
 }
 
+func (s *Stub) Mute(muted bool) error {
+	fmt.Printf("[player:stub] mute=%t\n", muted)
+	return nil
+}
+
+func (s *Stub) ShowEpisodeOverlay(title, synopsis string, season, episode int) error { return nil }
+
 func (s *Stub) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -127,4 +134,4 @@ func (s *Stub) Close() error { return nil }
 
 // OnEndFile is a no-op on the stub. Tests that need to simulate
 // end-of-track can call it directly to invoke the registered callback.
-func (s *Stub) OnEndFile(_ func()) {}
+func (s *Stub) OnEndFile(_ func(string)) {}

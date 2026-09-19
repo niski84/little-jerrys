@@ -7,6 +7,7 @@ import (
 
 // Config bundles all runtime knobs sourced from env vars at boot.
 type Config struct {
+	Version          string // build release label; revision comes from Go build metadata
 	Port             string // 8089
 	MediaRoot        string // USB mount, e.g. /media/usb
 	StatePath        string // JSON state on USB, e.g. /media/usb/.jerry/state.json
@@ -19,9 +20,9 @@ type Config struct {
 	BootSplashSecs   int    // captive-portal OSD splash duration
 	RescuePassword   string // backdoor for the admin user; empty disables
 	// Auto-update
-	AutoUpdate        bool // default true; set JERRY_AUTO_UPDATE=false to disable
-	UpdateWindowFrom  int  // local hour the safe restart window opens (default 2)
-	UpdateWindowTo    int  // local hour the safe restart window closes (default 4)
+	AutoUpdate       bool // default true; set JERRY_AUTO_UPDATE=false to disable
+	UpdateWindowFrom int  // local hour the safe restart window opens (default 2)
+	UpdateWindowTo   int  // local hour the safe restart window closes (default 4)
 }
 
 // LoadConfig reads env vars and applies sensible defaults.

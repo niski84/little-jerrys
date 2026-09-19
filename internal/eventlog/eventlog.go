@@ -1,12 +1,14 @@
-// Package eventlog is the in-process ring buffer of human-readable events
+// Package eventlog is a bounded ring with optional durable event history.
+// NewPersistent retains structured events across restarts; Since exports ordered
+// cursors with explicit retention gaps. New remains a volatile fallback.
+// The in-process ring contains human-readable events
 // the appliance has emitted. The dashboard's bottom strip renders the
 // latest few; a /api/events/recent endpoint serves the full ring as JSON
 // so an operator can copy-paste the last N events into a support email.
 //
 // Design choices:
-//   - In-memory only — events from before the last reboot don't survive.
-//     The appliance's `*.log` file on disk has the full historical record
-//     for forensic stuff; this is the "what just happened" surface.
+//   - Only events sent through this package are retained; unrelated stdout and
+//     OS logs are not included. Exporters must not claim complete system logs.
 //   - Capped at a fixed capacity (oldest entries drop on overflow).
 //   - Push() also writes to stdout so the existing log file stays useful.
 //   - Newest-first when read; ring is internally newest-last for cheap
@@ -21,17 +23,23 @@ import (
 
 // Event is one human-readable entry.
 type Event struct {
-	Time    time.Time `json:"time"`
-	Level   string    `json:"level"`   // info | warn | error
-	Source  string    `json:"source"`  // playback, auth, network, gpio, schedule, ...
-	Message string    `json:"message"`
+	Sequence int64     `json:"sequence"`
+	Time     time.Time `json:"time"`
+	Level    string    `json:"level"`  // info | warn | error
+	Source   string    `json:"source"` // playback, auth, network, gpio, schedule, ...
+	Message  string    `json:"message"`
 }
 
 // Log is the ring buffer.
 type Log struct {
-	mu       sync.Mutex
-	events   []Event
-	capacity int
+	mu              sync.Mutex
+	events          []Event
+	capacity        int
+	journal         *journal
+	sequence        int64
+	stream          string
+	boot            string
+	durabilityError string
 }
 
 // New constructs a ring with the given capacity. 200 is a comfortable default.
@@ -39,7 +47,7 @@ func New(capacity int) *Log {
 	if capacity < 16 {
 		capacity = 16
 	}
-	return &Log{capacity: capacity}
+	return &Log{capacity: capacity, stream: newID(), boot: newID()}
 }
 
 // Push appends an event and trims the ring to capacity. Also echoes the
@@ -51,9 +59,22 @@ func (l *Log) Push(level, source, message string) {
 	}
 	e := Event{Time: time.Now(), Level: level, Source: source, Message: message}
 	l.mu.Lock()
+	l.sequence++
+	e.Sequence = l.sequence
+	e.Source, e.Message = bounded(e.Source, 120), bounded(e.Message, 4000)
+	if l.journal != nil && l.durabilityError == "" {
+		if err := l.journal.append(e); err != nil {
+			l.durabilityError = "journal write failed; events may be missing after restart"
+		}
+	}
 	l.events = append(l.events, e)
 	if len(l.events) > l.capacity {
 		l.events = l.events[len(l.events)-l.capacity:]
+	}
+	if l.journal != nil && l.durabilityError == "" && l.journal.records >= 2*l.capacity {
+		if err := l.journal.compact(l.stream, l.events); err != nil {
+			l.durabilityError = "journal rotation failed; coverage is uncertain"
+		}
 	}
 	l.mu.Unlock()
 	prefix := ""

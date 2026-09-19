@@ -18,18 +18,21 @@ import (
 )
 
 const (
-	APConnectionName = "LittleJerrysConfig"
+	APConnectionName = "jerry-ap" // preserve the deployed recovery profile
 
 	// APaddress is on an uncommon subnet (192.168.42.0/24) so it doesn't
 	// collide with the typical home / restaurant 192.168.{0,1,4}.0/24
 	// ranges. The Pi takes .1 and DHCP serves clients on .100+ via
 	// NetworkManager's `ipv4.method=shared`.
-	APaddress = "192.168.42.1"
+	APaddress = "10.42.0.1"
+	// Recovery compatibility defaults; do not rename a deployed Wi-Fi profile
+	// during a code-only migration. Tenant SSID overrides still apply.
+	APPassword = "channelseven"
 )
 
 // APssid is the captive-portal WiFi network name. Settable at boot from
 // jerry.conf (AP_SSID=...) so a tenant rebrand doesn't require recompile.
-var APssid = "Channel14_Setup"
+var APssid = "ChannelSeven_Setup"
 
 // SetAPssid overrides the broadcast SSID. Must be called before EnsureAPProfile.
 func SetAPssid(s string) {
@@ -129,8 +132,8 @@ func (m *Manager) EnsureAPProfile(ctx context.Context) error {
 			return nil
 		}
 	}
-	// Create AP profile. The wifi-sec config is left open (no password) so
-	// staff can join from a phone — captive-portal config is single-use.
+	// Preserve the deployed WPA recovery profile; never rewrite an existing
+	// profile or change its credentials during an application migration.
 	if _, err := m.run(ctx,
 		"connection", "add",
 		"type", "wifi",
@@ -140,6 +143,8 @@ func (m *Manager) EnsureAPProfile(ctx context.Context) error {
 		"ssid", APssid,
 		"802-11-wireless.mode", "ap",
 		"802-11-wireless.band", "bg",
+		"802-11-wireless-security.key-mgmt", "wpa-psk",
+		"802-11-wireless-security.psk", APPassword,
 		"ipv4.method", "shared",
 		"ipv4.addresses", APaddress+"/24",
 	); err != nil {
@@ -226,7 +231,7 @@ func (m *Manager) LANAddresses() []string {
 	return out
 }
 
-// HasInternet does a 2s connectivity check by hitting NM's connectivity URL.
+// HasInternet checks NM state plus a client route, without sending a probe.
 func (m *Manager) HasInternet(ctx context.Context) bool {
 	if !m.Available() {
 		return false
@@ -235,8 +240,41 @@ func (m *Manager) HasInternet(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(out), "connected") &&
-		!strings.Contains(string(out), "limited")
+	if strings.TrimSpace(string(out)) != "connected" {
+		return false
+	}
+	route, err := exec.CommandContext(ctx, "ip", "route", "get", "1.1.1.1").Output()
+	if err != nil {
+		return false
+	}
+	return usableRoute(string(route))
+}
+
+func usableRoute(route string) bool {
+	fields := strings.Fields(route)
+	if len(fields) == 0 || fields[0] == "unreachable" || fields[0] == "blackhole" || fields[0] == "prohibit" {
+		return false
+	}
+	for i, field := range fields {
+		if field == "dev" && i+1 < len(fields) && fields[i+1] != "lo" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Manager) APClientCount(ctx context.Context) (int, error) {
+	out, err := exec.CommandContext(ctx, "iw", "dev", "wlan0", "station", "dump").Output()
+	if err != nil {
+		return 0, fmt.Errorf("read recovery AP clients: %w", err)
+	}
+	n := 0
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "Station ") {
+			n++
+		}
+	}
+	return n, nil
 }
 
 // OnPi reports whether the host has a wlan0 interface (Pi hardware).
@@ -260,6 +298,7 @@ func (m *Manager) Watcher(ctx context.Context, gracePeriod time.Duration) {
 	}
 	if err := m.EnsureAPProfile(ctx); err != nil {
 		fmt.Printf("[network] ensure AP profile: %v\n", err)
+		return
 	}
 	timer := time.NewTimer(gracePeriod)
 	defer timer.Stop()
@@ -270,11 +309,23 @@ func (m *Manager) Watcher(ctx context.Context, gracePeriod time.Duration) {
 	}
 	for {
 		if m.HasInternet(ctx) {
-			_ = m.StopAP(ctx)
+			if m.APActive(ctx) {
+				clients, err := m.APClientCount(ctx)
+				if err != nil {
+					fmt.Printf("[network] retain recovery AP: %v\n", err)
+				}
+				if err == nil && clients == 0 {
+					if err := m.StopAP(ctx); err != nil {
+						fmt.Printf("[network] stop recovery AP: %v\n", err)
+					}
+				}
+			}
 		} else {
 			fmt.Printf("[network] no client connectivity — starting AP %s\n", APssid)
-			if err := m.StartAP(ctx); err != nil {
-				fmt.Printf("[network] start AP: %v\n", err)
+			if !m.APActive(ctx) {
+				if err := m.StartAP(ctx); err != nil {
+					fmt.Printf("[network] start AP: %v\n", err)
+				}
 			}
 		}
 		select {

@@ -186,6 +186,68 @@ func TestWeightedEpisodeRunsMoreOften(t *testing.T) {
 	}
 }
 
+// TestWeightedPoolUsesExactMultipliers checks the deterministic part of the
+// feature instead of relying on probability. A weight is a play multiplier:
+// weight 4 means four entries in the next generated rotation, not a vague
+// priority that may or may not be observable in a short run.
+func TestWeightedPoolUsesExactMultipliers(t *testing.T) {
+	root := stage(t, map[[2]int]string{
+		{1, 1}: "one",
+		{1, 2}: "two",
+		{1, 3}: "three",
+	}, nil)
+	e := New(root)
+	if err := e.Scan(); err != nil {
+		t.Fatal(err)
+	}
+	e.SetEpisodeWeight("S01E01", 4)
+	e.SetEpisodeWeight("S01E02", 2)
+
+	pool := e.weightedEpisodePool()
+	counts := map[string]int{}
+	for _, path := range pool {
+		counts[episodeKeyFromPath(path)]++
+	}
+	if len(pool) != 7 {
+		t.Fatalf("weighted pool length = %d, want 7", len(pool))
+	}
+	for key, want := range map[string]int{"S01E01": 4, "S01E02": 2, "S01E03": 1} {
+		if counts[key] != want {
+			t.Errorf("%s pool count = %d, want %d", key, counts[key], want)
+		}
+	}
+}
+
+// TestWeightOneClearsOverride mirrors the settings form's reset behavior:
+// saving the default value must remove the stored multiplier.
+func TestWeightOneClearsOverride(t *testing.T) {
+	root := stage(t, map[[2]int]string{{1, 1}: "one", {1, 2}: "two"}, nil)
+	e := New(root)
+	_ = e.Scan()
+	e.SetEpisodeWeight("S01E01", 5)
+	e.SetEpisodeWeight("S01E01", 1)
+
+	pool := e.weightedEpisodePool()
+	if len(pool) != 2 {
+		t.Fatalf("cleared weight left pool length %d, want 2", len(pool))
+	}
+}
+
+// TestBlacklistWinsOverWeight ensures a staff member cannot accidentally
+// reintroduce a Soup-banned episode by giving it a larger weight.
+func TestBlacklistWinsOverWeight(t *testing.T) {
+	root := stage(t, map[[2]int]string{{1, 1}: "one", {1, 2}: "two"}, nil)
+	e := New(root)
+	_ = e.Scan()
+	e.SetEpisodeWeight("S01E01", 99)
+	e.SetBlacklist([]string{"S01E01"})
+
+	pool := e.weightedEpisodePool()
+	if len(pool) != 1 || episodeKeyFromPath(pool[0]) != "S01E02" {
+		t.Fatalf("blacklist/weight conflict produced %#v, want only S01E02", pool)
+	}
+}
+
 // TestWeightTiersOrderTheDistribution — three episodes at three different
 // weights should appear in the right relative ratios.
 func TestWeightTiersOrderTheDistribution(t *testing.T) {

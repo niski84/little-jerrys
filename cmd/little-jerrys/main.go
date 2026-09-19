@@ -52,11 +52,15 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	cfg.Version = Version
 	app, err := jerry.NewApp(ctx, cfg)
 	if err != nil {
 		log.Fatalf("[little-jerrys] init: %v", err)
 	}
 	defer app.Close()
+	if !cfg.UsePlayerStub {
+		app.ShowBootScreen()
+	}
 
 	// Start the configured mode exactly once after boot initialization. If a
 	// saved position exists, playback resumes there; otherwise the random

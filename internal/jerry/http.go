@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
+
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 
 	"github.com/niski84/little-jerrys/internal/clipart"
 	"github.com/niski84/little-jerrys/internal/help"
@@ -51,7 +54,18 @@ func NewServer(app *App) http.Handler {
 
 	// Health — public for monitoring.
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
-		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "little-jerrys"})
+		revision, modified := "", "unknown"
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.revision" {
+					revision = setting.Value
+				}
+				if setting.Key == "vcs.modified" {
+					modified = setting.Value
+				}
+			}
+		}
+		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "little-jerrys", "version": app.Cfg.Version, "revision": revision, "modified": modified, "device_id": app.Events.Since("", 0, 1).Stream, "auto_update": strconv.FormatBool(app.Cfg.AutoUpdate)})
 	})
 
 	// Runtime-uploaded soundboard clips. Public-ish (the soundboard page
@@ -112,7 +126,8 @@ func NewServer(app *App) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		_ = splash.Render(splash.Config{
 			SSID:     network.APssid,
-			AdminURL: "http://" + network.APaddress,
+			Password: network.APPassword,
+			AdminURL: "http://" + network.APaddress + ":" + app.Cfg.Port,
 		}, w)
 	})
 
@@ -195,6 +210,25 @@ func NewServer(app *App) http.Handler {
 		})
 	})
 
+	authed.HandleFunc("GET /api/events/export", func(w http.ResponseWriter, r *http.Request) {
+		after := int64(0)
+		if raw := r.URL.Query().Get("after"); raw != "" {
+			var err error
+			after, err = strconv.ParseInt(raw, 10, 64)
+			if err != nil || after < 0 {
+				http.Error(w, "invalid cursor", 400)
+				return
+			}
+		}
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		stream := r.URL.Query().Get("stream")
+		if len(stream) > 64 {
+			http.Error(w, "invalid stream", 400)
+			return
+		}
+		respondJSON(w, 200, app.Events.Since(stream, after, limit))
+	})
+
 	// /api/update/status — returns the pending OTA update notice (if any).
 	// Polled by the dashboard banner every 30s. Returns 204 when no update
 	// is pending; 200 + JSON when a restart is scheduled.
@@ -258,6 +292,7 @@ func NewServer(app *App) http.Handler {
 			"queue_remaining": stats.QueueRemaining,
 			"upcoming":        upcoming,
 			"mode":            app.CurrentMode().String(),
+			"volume_level":    volumeLevel(app.Store.Get().VolumeLevel),
 		})
 	})
 
@@ -291,13 +326,35 @@ func NewServer(app *App) http.Handler {
 		st := app.Store.Get()
 		// Show up to ~30 upcoming items so the page stays fast on phones.
 		items := app.Playlist.Peek(30)
-		rows := make([]views.QueueRow, 0, len(items))
+		// The queue is the playlist shown to the operator. Keep it populated so
+		// the page never falls back to a misleading "Generate" empty state and
+		// the next automatic transition has already been surfaced here.
+		if len(items) == 0 && len(app.Playlist.Catalog()) > 0 {
+			app.Playlist.Regenerate()
+			app.SnapshotQueue()
+			items = app.Playlist.Peek(30)
+		}
+		rows := make([]views.QueueRow, 0, len(items)+1)
+		// The engine queue contains only items still to come. Put the actual
+		// HDMI item above it so the operator can compare the screen with the
+		// complete playlist without mistaking "up next" for "now playing".
+		now := app.Player.Status().NowPlaying
+		if now != "" {
+			rows = append(rows, views.QueueRow{
+				Index:        -1,
+				Path:         now,
+				Label:        filepath.Base(now),
+				IsCommercial: strings.Contains(now, string(filepath.Separator)+"commercials"+string(filepath.Separator)),
+				IsNowPlaying: true,
+				EstSecs:      0,
+			})
+		}
 		for i, it := range items {
 			row := views.QueueRow{
-				Index:        i,
-				Path:         it.Path,
-				IsCommercial: it.Kind == playlist.KindCommercial,
-				EstSecs:      it.EstSecs,
+				Index:          i,
+				Path:           it.Path,
+				IsCommercial:   it.Kind == playlist.KindCommercial,
+				EstSecs:        it.EstSecs,
 				PlayCount:      st.PlayCounts[it.Path],
 				CompletedCount: st.CompletedCounts[it.Path],
 			}
@@ -311,6 +368,7 @@ func NewServer(app *App) http.Handler {
 			PositionSeconds: posSecs,
 			Queue:           rows,
 			PlayCounts:      st.PlayCounts,
+			VolumeLevel:     volumeLevel(st.VolumeLevel),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = views.Dashboard(vm).Render(r.Context(), w)
@@ -361,6 +419,9 @@ func NewServer(app *App) http.Handler {
 		vm := views.SettingsVM{
 			LoopGuardThreshold: st.LoopGuardThreshold,
 			WebhookOutbound:    st.WebhookOutbound,
+			QuietModeEnabled:   st.QuietModeEnabled,
+			QuietStart:         st.QuietStart,
+			QuietEnd:           st.QuietEnd,
 			Locked:             app.Auth.MustChange(),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -396,6 +457,12 @@ func NewServer(app *App) http.Handler {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = views.Soundboard(vm).Render(r.Context(), w)
+	})
+	playback := http.NewServeMux()
+	// Upload a soundboard clip directly from the admin UI. The route is under
+	// the same authenticated/first-password gate as all mutations.
+	playback.HandleFunc("POST /soundboard/upload", func(w http.ResponseWriter, r *http.Request) {
+		handleSoundboardUpload(w, r, filepath.Join(app.Cfg.MediaRoot, "sounds"))
 	})
 
 	// Redirects to the first available episode in the episode browser.
@@ -444,16 +511,24 @@ func NewServer(app *App) http.Handler {
 			BreakAfterMinutes:   st.BreakAfterMinutes,
 			CommercialsPerBreak: st.CommercialsPerBreak,
 			Locked:              app.Auth.MustChange(),
+			Campaigns:           campaignViews(st.CommercialCampaigns),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = views.Commercials(vm).Render(r.Context(), w)
 	})
 
 	// State-mutating handlers (gated behind LockedDuringDefault).
-	playback := http.NewServeMux()
 	// Resumes playback of the current track.
 	playback.HandleFunc("POST /api/play", func(w http.ResponseWriter, r *http.Request) {
-		if err := app.Player.Resume(); err != nil {
+		// A restarted mpv can be idle even though the app still knows the
+		// current track. In that case Resume only toggles an empty player and
+		// the HDMI screen remains unchanged; explicitly load the current item.
+		if app.Player.Status().NowPlaying == "" {
+			if err := app.PlayCurrent(); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else if err := app.Player.Resume(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -483,6 +558,24 @@ func NewServer(app *App) http.Handler {
 			return
 		}
 		if err := app.Player.Seek(time.Duration(secs * float64(time.Second))); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	// Persisted 1–10 perceptual volume scale; see volumePercent for the curve.
+	playback.HandleFunc("POST /api/volume", func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		level, err := strconv.Atoi(r.PostFormValue("level"))
+		if err != nil || validation.Validate(level, validation.Required, validation.Min(1), validation.Max(10)) != nil {
+			http.Error(w, "level must be an integer from 1 to 10", http.StatusUnprocessableEntity)
+			return
+		}
+		if err := app.Player.Volume(volumePercent(level)); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := app.Store.Update(func(s *State) { s.VolumeLevel = level }); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -529,6 +622,8 @@ func NewServer(app *App) http.Handler {
 			}
 		})
 		app.ApplyState()
+		app.Playlist.Regenerate()
+		app.SnapshotQueue()
 		http.Redirect(w, r, fmt.Sprintf("/episodes/%d/%d", s, e), http.StatusSeeOther)
 	})
 	// Toggles an episode's blacklist state by season/episode.
@@ -550,6 +645,8 @@ func NewServer(app *App) http.Handler {
 			st.Blacklist = append(st.Blacklist, key)
 		})
 		app.ApplyState()
+		app.Playlist.Regenerate()
+		app.SnapshotQueue()
 		// If the click came from /blacklist, redirect there; otherwise
 		// back to the episode detail.
 		ref := r.Header.Get("Referer")
@@ -573,10 +670,29 @@ func NewServer(app *App) http.Handler {
 				urls = append(urls, line)
 			}
 		}
-		_ = app.Store.Update(func(s *State) {
+		quietStart := r.PostFormValue("quiet_start")
+		quietEnd := r.PostFormValue("quiet_end")
+		previous := app.Store.Get()
+		if quietStart == "" {
+			quietStart = previous.QuietStart
+		}
+		if quietEnd == "" {
+			quietEnd = previous.QuietEnd
+		}
+		if validation.Validate(quietStart, validation.Required, validation.Date("15:04")) != nil || validation.Validate(quietEnd, validation.Required, validation.Date("15:04")) != nil {
+			http.Error(w, "quiet hours require HH:MM times", http.StatusUnprocessableEntity)
+			return
+		}
+		if err := app.Store.Update(func(s *State) {
 			s.LoopGuardThreshold = threshold
 			s.WebhookOutbound = urls
-		})
+			s.QuietModeEnabled = r.PostFormValue("quiet_mode_enabled") == "1"
+			s.QuietStart = quietStart
+			s.QuietEnd = quietEnd
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		app.ApplyState()
 		http.Redirect(w, r, "/settings", http.StatusSeeOther)
 	})
@@ -599,6 +715,8 @@ func NewServer(app *App) http.Handler {
 			s.CommercialsPerBreak = perBreak
 		})
 		app.ApplyState()
+		app.Playlist.Regenerate()
+		app.SnapshotQueue()
 		http.Redirect(w, r, "/commercials", http.StatusSeeOther)
 	})
 
@@ -930,8 +1048,12 @@ func NewServer(app *App) http.Handler {
 			s.CommercialBlacklist = newBlacklist
 		})
 		app.ApplyState()
+		app.Playlist.Regenerate()
+		app.SnapshotQueue()
 		http.Redirect(w, r, "/commercials", http.StatusSeeOther)
 	})
+
+	registerCampaignHandlers(playback, app)
 
 	// Compose: session gate → password-change gate → UI (with mutation sub-mux
 	// additionally locked while the default password is still in place).
@@ -939,6 +1061,18 @@ func NewServer(app *App) http.Handler {
 	mux.Handle("/", app.Auth.Require(app.Auth.RequirePasswordChanged(authed)))
 
 	return mux
+}
+
+func campaignViews(campaigns []CommercialCampaign) []views.CampaignVM {
+	out := make([]views.CampaignVM, 0, len(campaigns))
+	for _, c := range campaigns {
+		weight := c.Weight
+		if weight < 1 {
+			weight = 1
+		}
+		out = append(out, views.CampaignVM{ID: c.ID, Name: c.Name, Enabled: c.Enabled, Weight: weight, Files: len(c.Files)})
+	}
+	return out
 }
 
 func renderChangePwd(w http.ResponseWriter, r *http.Request, msg string) {
@@ -1167,6 +1301,11 @@ func renderEpisodes(w http.ResponseWriter, r *http.Request, app *App, season, ep
 		s, err := app.TMDB.Season(season)
 		if err == nil {
 			vm.ActiveSeason = s
+			// Selecting a season should immediately show useful detail instead
+			// of an empty "highlight an episode" panel.
+			if episode == 0 && len(s.Episodes) > 0 {
+				episode = s.Episodes[0].EpisodeNumber
+			}
 		}
 	}
 	st := app.Store.Get()

@@ -202,12 +202,12 @@ templ layoutShell(title, bgURL, imgOpacity, tintClasses string, withNav bool, co
 
 templ Nav() {
 	<nav class="relative border-b-4 border-[--color-bc-yellow] bg-[--color-bc-royal] text-[--color-bc-cream] dark:bg-[#000a24]">
-		<div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+		<div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-3">
 			<a href="/" class="flex items-center gap-3">
 				<span class="font-mono text-[10px] uppercase tracking-[0.3em] text-[--color-bc-yellow]">Little Jerry's</span>
 				<img src={ BrandLogoURL } alt={ BrandTenantName } class="h-12 w-auto" onerror="this.style.display='none'"/>
 			</a>
-			<div class="flex items-center gap-3 font-mono text-[11px] uppercase tracking-wider text-[--color-bc-cream]">
+			<div class="flex min-w-0 flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-wider text-[--color-bc-cream]">
 				<a href="/" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-dashboard">Now Playing</a>
 				<a href="/summary" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-summary">Summary</a>
 				<a href="/episodes" class="hover:text-amber-500 dark:hover:text-amber-400" data-testid="nav-episodes">Episodes</a>

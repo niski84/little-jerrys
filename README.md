@@ -1,5 +1,11 @@
 # Little Jerry's
 
+**This is the one active project.** Channel Eleven, Channel Seven, Channel 14
+and Seinfeld are historical names for the same appliance. Start with
+[the canonical handoff and verified Pi details](AGENT-HANDOFF.md) before testing
+or deploying. The live Pi still runs the archived predecessor and requires a
+reviewed migration; changing the name alone does not migrate it.
+
 
 ![Little Jerry's demo](docs/little-jerrys-demo.gif)
 

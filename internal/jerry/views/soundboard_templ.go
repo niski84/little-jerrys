@@ -69,20 +69,20 @@ func soundboardBody(vm SoundboardVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"grid grid-cols-1 gap-6\"><section class=\"rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55\"><div class=\"flex flex-wrap items-start justify-between gap-3\"><div><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400\">Soundboard</p><h1 class=\"mt-2 display-title text-3xl text-amber-500 dark:text-amber-400\">SLAP THE BUTTON</h1><p class=\"mt-1 text-sm text-zinc-600 dark:text-zinc-300\">One button per audio file in <code class=\"font-mono text-amber-600 dark:text-amber-400\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"grid grid-cols-1 gap-6\"><section class=\"rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55\"><div class=\"flex flex-wrap items-start justify-between gap-3\"><div class=\"min-w-0 max-w-full\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400\">Soundboard</p><h1 class=\"mt-2 display-title text-3xl text-amber-500 dark:text-amber-400\">SLAP THE BUTTON</h1><p class=\"mt-1 text-sm text-zinc-600 dark:text-zinc-300\">One button per audio file in <code class=\"break-all font-mono text-amber-600 dark:text-amber-400\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.SoundDir)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 27, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 27, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</code>. Drop in <code>.mp3</code> / <code>.ogg</code> / <code>.wav</code> / <code>.m4a</code> files, hit Rescan, and they appear.</p></div><a href=\"/soundboard\" class=\"btn btn-sm\" data-testid=\"soundboard-rescan\">↻ Rescan</a></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</code>. Drop in <code>.mp3</code> / <code>.ogg</code> / <code>.wav</code> / <code>.m4a</code> files, hit Rescan, and they appear.</p></div><a href=\"/soundboard\" class=\"btn btn-sm\" data-testid=\"soundboard-rescan\">↻ Rescan</a></div></section><section class=\"rounded-2xl border border-amber-500/30 bg-amber-950/10 p-8\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-400\">Add a sound</p><form method=\"POST\" action=\"/soundboard/upload\" enctype=\"multipart/form-data\" class=\"mt-4 flex flex-wrap gap-3\"><input type=\"file\" name=\"sound_file\" accept=\".mp3,.ogg,.wav,.m4a,.flac\" required class=\"min-w-0 max-w-full flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm\"> <button class=\"btn btn-primary\">Upload sound</button></form><p class=\"mt-2 text-xs text-zinc-500\">MP3, OGG, WAV, M4A, or FLAC · maximum 100 MB.</p></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -94,7 +94,7 @@ func soundboardBody(vm SoundboardVM) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(vm.SoundDir)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 40, Col: 99}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 49, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -122,7 +122,7 @@ func soundboardBody(vm SoundboardVM) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(vm.Clips)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 55, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 64, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -135,7 +135,7 @@ func soundboardBody(vm SoundboardVM) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(pluralS(len(vm.Clips)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 55, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 64, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -182,7 +182,7 @@ func arcadeButton(c sounds.Clip, idx int) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue("arcade-cell-" + strconv.Itoa(idx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 83, Col: 95}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 92, Col: 95}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 		if templ_7745c5c3_Err != nil {
@@ -217,7 +217,7 @@ func arcadeButton(c sounds.Clip, idx int) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.URL)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 87, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 96, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -230,7 +230,7 @@ func arcadeButton(c sounds.Clip, idx int) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue("arcade-btn-" + strconv.Itoa(idx))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 88, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 97, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 		if templ_7745c5c3_Err != nil {
@@ -243,7 +243,7 @@ func arcadeButton(c sounds.Clip, idx int) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 89, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 98, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -256,7 +256,7 @@ func arcadeButton(c sounds.Clip, idx int) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(c.Filename)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 90, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 99, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 		if templ_7745c5c3_Err != nil {
@@ -269,7 +269,7 @@ func arcadeButton(c sounds.Clip, idx int) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(c.Label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 94, Col: 110}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 103, Col: 110}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -282,7 +282,7 @@ func arcadeButton(c sounds.Clip, idx int) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(c.Filename)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 95, Col: 102}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `soundboard.templ`, Line: 104, Col: 102}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {

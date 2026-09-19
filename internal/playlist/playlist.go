@@ -232,6 +232,18 @@ func (e *Engine) SetCommercialWeight(path string, weight int) {
 }
 
 // SetCommercialBlacklist removes specific commercials from rotation.
+func (e *Engine) SetCommercialWeights(weights map[string]int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.commWeights = make(map[string]int, len(weights))
+	for path, weight := range weights {
+		if weight > 1 {
+			e.commWeights[path] = weight
+		}
+	}
+}
+
+// SetCommercialBlacklist removes specific commercials from rotation.
 func (e *Engine) SetCommercialBlacklist(paths []string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()

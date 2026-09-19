@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -25,7 +27,7 @@ type Player interface {
 	//
 	// Safe to call before or after Play(); the registration outlives mpv
 	// crashes and respawns.
-	OnEndFile(cb func())
+	OnEndFile(cb func(string))
 	Play(path string) error
 	// PlayAt loads the file and seeks to start before un-pausing. Used on
 	// boot to resume the same episode the Pi was on when it lost power.
@@ -34,6 +36,11 @@ type Player interface {
 	Resume() error
 	Skip() error
 	Volume(pct int) error
+	Mute(muted bool) error
+	// ShowEpisodeOverlay presents episode metadata on the OSD for a short,
+	// wall-clock duration. It is independent of the media timeline so resume
+	// playback still gets the intro card.
+	ShowEpisodeOverlay(title, synopsis string, season, episode int) error
 	Status() Status
 	// Position queries mpv for the current playhead. Returns (0, error) if
 	// the IPC socket is unavailable or the property isn't ready yet.
@@ -47,9 +54,6 @@ type Player interface {
 	// seconds, looping forever. Used during off-hours when the schedule
 	// says "no episodes" — the TV shows fan art instead.
 	PlaySlideshow(paths []string, secsPer int) error
-	// ShowOSD renders a text message as an on-screen overlay for dur.
-	// Used for maintenance announcements (e.g. "restarting in 10 min").
-	// Silently no-ops if the IPC socket is unavailable.
 	ShowOSD(message string, dur time.Duration) error
 	Close() error
 }
@@ -73,19 +77,28 @@ type Config struct {
 // New starts (or returns a stub of) an mpv-backed player. The returned Player
 // supervises mpv: if mpv exits unexpectedly, it is restarted.
 func New(ctx context.Context, cfg Config) (Player, error) {
-	p := &mpvPlayer{cfg: cfg, current: ""}
+	ctx, cancel := context.WithCancel(ctx)
+	p := &mpvPlayer{cfg: cfg, current: "", cancel: cancel}
 	if err := p.spawn(ctx); err != nil {
+		cancel()
 		return nil, fmt.Errorf("spawn mpv: %w", err)
 	}
 	return p, nil
 }
 
 type mpvPlayer struct {
-	cfg     Config
-	mu      sync.Mutex
-	cmd     *exec.Cmd
-	current string
-	paused  bool
+	loadMu       sync.Mutex // serialize file options and loadfile across callers
+	cfg          Config
+	mu           sync.Mutex
+	cmd          *exec.Cmd
+	current      string
+	paused       bool
+	cancel       context.CancelFunc
+	closed       bool
+	slideshow    bool
+	lastPosition time.Duration
+	muted        bool
+	volume       int
 
 	// reqID is incremented for each IPC request so responses can be matched.
 	reqMu sync.Mutex
@@ -93,16 +106,25 @@ type mpvPlayer struct {
 
 	// onEndFile is invoked when mpv's event stream emits an end-file with
 	// reason=eof. Survives mpv crash+respawn — set once on app boot.
-	endMu     sync.Mutex
-	onEndFile func()
+	endMu      sync.Mutex
+	onEndFile  func(string)
+	endStateMu sync.Mutex
+	endSeen    bool
 }
 
 func (p *mpvPlayer) spawn(ctx context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed || ctx.Err() != nil {
+		return fmt.Errorf("player is closed")
+	}
 	args := []string{
 		"--idle=yes",
 		"--input-ipc-server=" + p.cfg.SocketPath,
 		"--no-terminal",
-		"--keep-open=no",
+		// Keep the DRM surface alive at EOF. With keep-open=no mpv unloads
+		// the file and tty1 becomes visible before our next loadfile arrives.
+		"--keep-open=always",
 		"--osd-level=0",
 		// Force-load image-display-duration so still-image playlists
 		// (fan-art slideshow during off-hours) advance reliably.
@@ -111,7 +133,7 @@ func (p *mpvPlayer) spawn(ctx context.Context) error {
 	if p.cfg.AudioOut != "" {
 		args = append(args, "--ao="+p.cfg.AudioOut)
 	} else {
-		args = append(args, "--audio-fallback-to-null=yes")
+		args = append(args, "--audio-fallback-to-null=no")
 	}
 	if p.cfg.VideoOut != "" {
 		args = append(args, "--vo="+p.cfg.VideoOut)
@@ -143,19 +165,109 @@ func (p *mpvPlayer) spawn(ctx context.Context) error {
 	// async event stream, and fires onEndFile when a track finishes
 	// naturally (reason=eof). Without this the TV goes black at the end
 	// of every track because --keep-open=no makes mpv unload back to idle.
-	go p.eventLoop(ctx)
+	eventCtx, stopEvents := context.WithCancel(ctx)
+	go p.eventLoop(eventCtx)
 
 	// Supervisor: if mpv dies, log and respawn after a short backoff.
 	go func() {
 		err := cmd.Wait()
+		stopEvents()
 		if ctx.Err() != nil {
 			return
 		}
 		fmt.Printf("[player] mpv exited unexpectedly: %v — respawning in 1s\n", err)
-		time.Sleep(1 * time.Second)
-		_ = p.spawn(ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
+			}
+			if err := p.spawn(ctx); err != nil {
+				fmt.Printf("[player] respawn failed: %v\n", err)
+				continue
+			}
+			p.mu.Lock()
+			path, position, paused, slideshow := p.current, p.lastPosition, p.paused, p.slideshow
+			muted, volume := p.muted, p.volume
+			p.mu.Unlock()
+			if path != "" && !slideshow {
+				if err := p.PlayAt(path, position); err != nil {
+					fmt.Printf("[player] restore playback: %v\n", err)
+				} else if paused {
+					if err := p.Pause(); err != nil {
+						fmt.Printf("[player] restore pause: %v\n", err)
+					}
+				}
+			}
+			if volume > 0 {
+				if err := p.Volume(volume); err != nil {
+					fmt.Printf("[player] restore volume: %v\n", err)
+				}
+			}
+			if err := p.Mute(muted); err != nil {
+				fmt.Printf("[player] restore mute: %v\n", err)
+			}
+			return
+		}
 	}()
 	return nil
+}
+
+// fireEndFile coalesces natural EOF and keep-open property notifications.
+func (p *mpvPlayer) fireEndFile() {
+	p.mu.Lock()
+	path, slideshow, closed := p.current, p.slideshow, p.closed
+	p.mu.Unlock()
+	if closed || slideshow || path == "" {
+		return
+	}
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png", ".jpg", ".jpeg", ".webp":
+		return // a boot/interstitial card is not an episode
+	}
+	p.endStateMu.Lock()
+	if p.endSeen {
+		p.endStateMu.Unlock()
+		return
+	}
+	p.endSeen = true
+	p.endStateMu.Unlock()
+	p.endMu.Lock()
+	cb := p.onEndFile
+	p.endMu.Unlock()
+	if cb != nil {
+		go cb(path)
+	}
+}
+
+// ShowEpisodeOverlay displays a lower-third with the current episode's
+// metadata. mpv's explicit show-text duration is wall-clock based, unlike an
+// ASS subtitle event whose timestamps follow the episode timeline.
+func (p *mpvPlayer) ShowEpisodeOverlay(title, synopsis string, season, episode int) error {
+	title = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(title, "\n", " "), "\r", " "))
+	synopsis = strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(synopsis, "\n", " "), "\r", " "))
+	if len([]rune(synopsis)) > 210 {
+		synopsis = string([]rune(synopsis)[:207]) + "..."
+	}
+	if title == "" {
+		title = "Next episode"
+	}
+	text := fmt.Sprintf("S%02dE%02d  %s", season, episode, title)
+	if synopsis != "" {
+		text += "\n" + synopsis
+	}
+	// Seinfeld-inspired amber text, dark translucent backing, lower-left
+	// placement, and a 15-second lifetime with mpv's OSD fade.
+	for _, setting := range [][2]string{
+		{"osd-align-x", "left"}, {"osd-align-y", "bottom"},
+		{"osd-font-size", "28"}, {"osd-color", "#facc15"},
+		{"osd-back-color", "#101018C0"}, {"osd-border-size", "2"},
+	} {
+		if err := p.command("set_property", setting[0], setting[1]); err != nil {
+			return err
+		}
+	}
+	return p.command("show-text", text, "15000")
 }
 
 // eventLoop holds an IPC connection open and decodes mpv's async event
@@ -187,13 +299,20 @@ func (p *mpvPlayer) eventLoop(ctx context.Context) {
 		return
 	}
 	defer conn.Close()
+	stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopClose()
+	// A persistent property subscription works with keep-open and avoids
+	// polling two properties four times per second or guessing from duration.
+	if err := json.NewEncoder(conn).Encode(map[string]any{"command": []any{"observe_property", 1, "eof-reached"}}); err != nil {
+		fmt.Printf("[player] observe EOF: %v\n", err)
+		return
+	}
 
 	// Debounce token. mpv emits a second end-file (reason=stop) for the
 	// previously-loaded entry every time we issue loadfile, even when
 	// that previous entry already ended naturally. Without this guard,
 	// every PlayNext would trigger another PlayNext, skipping every
 	// other track. We fire at most one callback per second.
-	var lastFire time.Time
 
 	dec := json.NewDecoder(conn)
 	for {
@@ -208,6 +327,16 @@ func (p *mpvPlayer) eventLoop(ctx context.Context) {
 			return
 		}
 		evt, _ := msg["event"].(string)
+		if evt == "file-loaded" {
+			p.endStateMu.Lock()
+			p.endSeen = false
+			p.endStateMu.Unlock()
+			continue
+		}
+		if evt == "property-change" && msg["name"] == "eof-reached" && msg["data"] == true {
+			p.fireEndFile()
+			continue
+		}
 		if evt != "end-file" {
 			continue
 		}
@@ -219,23 +348,12 @@ func (p *mpvPlayer) eventLoop(ctx context.Context) {
 		if reason != "eof" {
 			continue
 		}
-		if time.Since(lastFire) < 1*time.Second {
-			continue
-		}
-		lastFire = time.Now()
-		p.endMu.Lock()
-		cb := p.onEndFile
-		p.endMu.Unlock()
-		if cb != nil {
-			// Run the callback in its own goroutine so a slow PlayNext
-			// (TMDB lookup, webhook fanout) doesn't stall the listener.
-			go cb()
-		}
+		p.fireEndFile()
 	}
 }
 
 // OnEndFile registers the natural end-of-track callback. See interface doc.
-func (p *mpvPlayer) OnEndFile(cb func()) {
+func (p *mpvPlayer) OnEndFile(cb func(string)) {
 	p.endMu.Lock()
 	p.onEndFile = cb
 	p.endMu.Unlock()
@@ -349,8 +467,18 @@ func (p *mpvPlayer) query(args ...interface{}) (interface{}, error) {
 }
 
 func (p *mpvPlayer) Play(path string) error {
+	p.loadMu.Lock()
+	defer p.loadMu.Unlock()
+	if err := p.prepareEpisode(0); err != nil {
+		return err
+	}
+	p.endStateMu.Lock()
+	p.endSeen = true // re-arm only after mpv confirms file-loaded
+	p.endStateMu.Unlock()
 	p.mu.Lock()
 	p.current = path
+	p.slideshow = false
+	p.lastPosition = 0
 	p.paused = false
 	p.mu.Unlock()
 	if err := p.command("loadfile", path, "replace"); err != nil {
@@ -360,34 +488,72 @@ func (p *mpvPlayer) Play(path string) error {
 		fmt.Printf("[player] loadfile FAILED for %s: %v\n", path, err)
 		return err
 	}
-	return nil
+	return p.command("set_property", "pause", false)
 }
 
 func (p *mpvPlayer) PlayAt(path string, start time.Duration) error {
+	p.loadMu.Lock()
+	defer p.loadMu.Unlock()
+	if err := p.prepareEpisode(start); err != nil {
+		return err
+	}
+	p.endStateMu.Lock()
+	p.endSeen = true
+	p.endStateMu.Unlock()
 	p.mu.Lock()
 	p.current = path
+	p.slideshow = false
+	p.lastPosition = start
 	p.paused = false
 	p.mu.Unlock()
 	if start <= 0 {
-		return p.command("loadfile", path, "replace")
+		if err := p.command("loadfile", path, "replace"); err != nil {
+			return err
+		}
+		return p.command("set_property", "pause", false)
 	}
 	// Pass start= as a loadfile option so mpv seeks before the first frame
 	// is decoded — avoids the race of a separate seek command arriving before
 	// the file is loaded.
-	opts := fmt.Sprintf("start=%f", start.Seconds())
-	if err := p.command("loadfile", path, "replace", opts); err != nil {
+	if err := p.command("loadfile", path, "replace"); err != nil {
 		fmt.Printf("[player] loadfile FAILED for %s: %v\n", path, err)
 		return err
 	}
-	return nil
+	return p.command("set_property", "pause", false)
+}
+
+func (p *mpvPlayer) prepareEpisode(start time.Duration) error {
+	// mpv 0.38 changed loadfile's positional arguments. The start option
+	// works across both versions and is serialized with the following load.
+	if start < 0 {
+		start = 0
+	}
+	if err := p.command("set_property", "options/start", fmt.Sprintf("%.6f", start.Seconds())); err != nil {
+		return err
+	}
+	if err := p.command("set_property", "keep-open", "always"); err != nil {
+		return err
+	}
+	return p.command("set_property", "loop-playlist", "no")
 }
 
 func (p *mpvPlayer) PlaySlideshow(paths []string, secsPer int) error {
+	p.loadMu.Lock()
+	defer p.loadMu.Unlock()
 	if len(paths) == 0 {
 		return fmt.Errorf("no images to display")
 	}
 	if secsPer < 1 {
 		secsPer = 8
+	}
+	p.mu.Lock()
+	p.slideshow = true
+	p.mu.Unlock()
+	if err := p.command("set_property", "options/start", "0"); err != nil {
+		return err
+	}
+	if err := p.command("set_property", "keep-open", "no"); err != nil {
+		return err
 	}
 	// Ensure mpv keeps each image up for secsPer seconds and loops the
 	// playlist when it reaches the end.
@@ -422,7 +588,11 @@ func (p *mpvPlayer) Position() (time.Duration, error) {
 	if !ok {
 		return 0, fmt.Errorf("unexpected time-pos type: %T", v)
 	}
-	return time.Duration(secs * float64(time.Second)), nil
+	position := time.Duration(secs * float64(time.Second))
+	p.mu.Lock()
+	p.lastPosition = position
+	p.mu.Unlock()
+	return position, nil
 }
 
 func (p *mpvPlayer) Duration() (time.Duration, error) {
@@ -455,7 +625,20 @@ func (p *mpvPlayer) Resume() error {
 	p.mu.Lock()
 	p.paused = false
 	p.mu.Unlock()
-	return p.command("set_property", "pause", false)
+	if err := p.command("set_property", "pause", false); err != nil {
+		return err
+	}
+	// Do not report success to the web UI unless mpv confirms that it is
+	// actually running. This catches an idle/restarted mpv where a pause
+	// toggle can otherwise look successful while HDMI remains frozen.
+	v, err := p.query("get_property", "pause")
+	if err != nil {
+		return fmt.Errorf("verify resume: %w", err)
+	}
+	if paused, ok := v.(bool); !ok || paused {
+		return fmt.Errorf("mpv remained paused after resume")
+	}
+	return nil
 }
 
 func (p *mpvPlayer) Skip() error {
@@ -463,7 +646,23 @@ func (p *mpvPlayer) Skip() error {
 }
 
 func (p *mpvPlayer) Volume(pct int) error {
-	return p.command("set_property", "volume", pct)
+	if err := p.command("set_property", "volume", pct); err != nil {
+		return err
+	}
+	p.mu.Lock()
+	p.volume = pct
+	p.mu.Unlock()
+	return nil
+}
+
+func (p *mpvPlayer) Mute(muted bool) error {
+	if err := p.command("set_property", "mute", muted); err != nil {
+		return err
+	}
+	p.mu.Lock()
+	p.muted = muted
+	p.mu.Unlock()
+	return nil
 }
 
 func (p *mpvPlayer) Status() Status {
@@ -482,6 +681,15 @@ func (p *mpvPlayer) ShowOSD(message string, dur time.Duration) error {
 }
 
 func (p *mpvPlayer) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return nil
+	}
+	p.closed = true
+	if p.cancel != nil {
+		p.cancel()
+	}
 	if p.cmd != nil && p.cmd.Process != nil {
 		return p.cmd.Process.Kill()
 	}

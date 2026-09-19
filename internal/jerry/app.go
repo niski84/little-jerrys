@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/niski84/little-jerrys/internal/auth"
@@ -15,10 +16,12 @@ import (
 	"github.com/niski84/little-jerrys/internal/eventlog"
 	"github.com/niski84/little-jerrys/internal/gpio"
 	"github.com/niski84/little-jerrys/internal/jerry/views"
+	"github.com/niski84/little-jerrys/internal/mediaroot"
 	"github.com/niski84/little-jerrys/internal/network"
 	"github.com/niski84/little-jerrys/internal/player"
 	"github.com/niski84/little-jerrys/internal/playlist"
 	"github.com/niski84/little-jerrys/internal/schedule"
+	"github.com/niski84/little-jerrys/internal/splash"
 	"github.com/niski84/little-jerrys/internal/tmdb"
 	"github.com/niski84/little-jerrys/internal/usbconfig"
 	"github.com/niski84/little-jerrys/internal/webhook"
@@ -43,16 +46,21 @@ func (m Mode) String() string {
 
 // App is the runtime container for the Little Jerry's Automator.
 type App struct {
-	Cfg      Config
-	Store    *Store
-	Auth     *auth.Manager
-	Player   player.Player
-	Playlist *playlist.Engine
-	Button   gpio.Listener
-	Webhook  *webhook.Sender
-	Network  *network.Manager
-	TMDB     *tmdb.Cache
-	Events   *eventlog.Log
+	Cfg         Config
+	Store       *Store
+	Auth        *auth.Manager
+	Player      player.Player
+	Playlist    *playlist.Engine
+	Button      gpio.Listener
+	Webhook     *webhook.Sender
+	Network     *network.Manager
+	TMDB        *tmdb.Cache
+	Events      *eventlog.Log
+	waitingPath string
+	cancel      context.CancelFunc
+	startOnce   sync.Once
+	workerWG    sync.WaitGroup
+	closing     atomic.Bool
 
 	// currentTrack is what's actually playing right now (vs. Playlist's
 	// internal queue head). Updated by PlayNext / ResumeOrPlayNext, read by
@@ -62,7 +70,9 @@ type App struct {
 
 	// Mode reflects whether we're in normal playback or off-hours slideshow.
 	modeMu sync.RWMutex
-	mode   Mode
+	// ModePlayback is the zero value. NewApp initializes this to an invalid
+	// sentinel so boot cannot be mistaken for an already-applied mode.
+	mode Mode
 
 	// Playback tracker state — flipped to true the first time the current
 	// track crosses the completion threshold (75% of duration). Reset on
@@ -70,7 +80,9 @@ type App struct {
 	// when the tracker ticks repeatedly while a track is past 75%.
 	creditMu      sync.Mutex
 	creditedTrack string
-
+	quietMu       sync.Mutex
+	quietActive   bool
+	advanceMu     sync.Mutex // serialize web skip, GPIO bailout, and EOF auto-advance
 	// Pending OTA update announcement. Set by the updater goroutine; read
 	// by the /api/update/status endpoint and the dashboard banner.
 	updateMu     sync.RWMutex
@@ -108,6 +120,17 @@ func (a *App) CurrentMode() Mode {
 
 // NewApp initializes all subsystems and starts the playback loop.
 func NewApp(ctx context.Context, cfg Config) (*App, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	ready := false
+	defer func() {
+		if !ready {
+			cancel()
+		}
+	}()
+	// Resolve once at boot so every subsystem (branding, uploads, playlist,
+	// and playback) agrees on the same drive. The watcher below re-scans this
+	// path after hot-plug; JERRY_MEDIA_ROOT remains the manual override.
+	cfg.MediaRoot = mediaroot.Resolve(cfg.MediaRoot)
 	// USB-side operator config (jerry.conf) is the lowest-friction way to
 	// rebrand a unit without touching the admin UI — read it once at boot
 	// and apply the overrides where they're consumed (nav logo, AP SSID).
@@ -123,8 +146,18 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 		network.SetAPssid(uc.APssid)
 	}
 
-	events := eventlog.New(200)
-	events.Info("boot", "channel 14 smash deck starting up")
+	events, eventErr := eventlog.NewPersistent(filepath.Join(filepath.Dir(cfg.StatePath), "events.jsonl"), 1000)
+	if eventErr != nil {
+		events = eventlog.New(200)
+		events.Warn("eventlog", "Persistent history unavailable; exporter reports a coverage gap")
+	}
+	initialized := false
+	defer func() {
+		if !initialized {
+			_ = events.Close()
+		}
+	}()
+	events.Info("boot", "Little Jerry's starting up")
 
 	store, err := NewStore(cfg.StatePath)
 	if err != nil {
@@ -159,21 +192,33 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	for key, weight := range st.Weights {
 		pl.SetEpisodeWeight(key, weight)
 	}
-	pl.SetCommercialBlacklist(st.CommercialBlacklist)
-	for path, weight := range st.CommercialWeights {
-		pl.SetCommercialWeight(path, weight)
-	}
+	commercialBlacklist, commercialWeights := effectiveCommercialSettings(st)
+	pl.SetCommercialBlacklist(commercialBlacklist)
+	pl.SetCommercialWeights(commercialWeights)
 	pl.SetBreakSchedule(st.BreakAfterMinutes, st.CommercialsPerBreak)
 	pl.EnableCommercials(st.CommercialsEnabled)
 
 	wh := webhook.NewSender()
 	wh.SetURLs(st.WebhookOutbound)
 
+	// Prepare a branded interstitial outside the video files so mpv never
+	// exposes tty1 between episodes.
+	waitingPath := filepath.Join(filepath.Dir(cfg.StatePath), "waiting.png")
+	logoPath := ""
+	if uc.LogoFile != "" {
+		logoPath = filepath.Join(cfg.MediaRoot, uc.LogoFile)
+	}
+	if err := splash.RenderWaiting(views.BrandTenantName, logoPath, waitingPath); err != nil {
+		fmt.Printf("[jerry] interstitial unavailable: %v\n", err)
+		waitingPath = ""
+	}
+
 	var p player.Player
 	if cfg.UsePlayerStub {
 		p = player.NewStub()
 	} else {
-		p, err = player.New(ctx, player.Config{
+		// Close saves the last position before terminating mpv.
+		p, err = player.New(context.WithoutCancel(ctx), player.Config{
 			SocketPath: cfg.MpvSocket,
 			Fullscreen: true,
 			HWDecode:   true,
@@ -185,6 +230,12 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 			p = player.NewStub()
 		}
 	}
+
+	defer func() {
+		if !initialized {
+			_ = p.Close()
+		}
+	}()
 
 	btn := gpio.New(gpio.Config{
 		Pin:       cfg.GPIOPin,
@@ -198,12 +249,12 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	// appliance. It is OFF unless jerry.conf sets CAPTIVE_PORTAL=true, so a
 	// fresh install on any normal machine never touches networking.
 	if uc.CaptivePortal && netMgr.Available() {
-		// 10s grace: just long enough for NetworkManager to try a DHCP
-		// handshake against any saved client SSID. After that, if we still
+		// 30s grace: let NetworkManager try the saved client SSID and allow a
+		// home/update server to become reachable. After that, if we still
 		// don't have client connectivity, broadcast the AP so the staff
 		// can configure us from a phone.
 		fmt.Printf("[network] captive portal ENABLED — managing WiFi via nmcli\n")
-		go netMgr.Watcher(ctx, 10*time.Second)
+		// Started below, after app exists, so shutdown can join this worker.
 	} else {
 		fmt.Printf("[network] captive portal disabled (set CAPTIVE_PORTAL=true in jerry.conf to enable)\n")
 	}
@@ -213,17 +264,25 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	tmdbCache := tmdb.NewCache(tmdb.EmbeddedFS)
 
 	app := &App{
-		Cfg:      cfg,
-		Store:    store,
-		Auth:     authMgr,
-		Player:   p,
-		Playlist: pl,
-		Button:   btn,
-		Webhook:  wh,
-		Network:  netMgr,
-		TMDB:     tmdbCache,
-		Events:   events,
+		Cfg:         cfg,
+		Store:       store,
+		Auth:        authMgr,
+		Player:      p,
+		Playlist:    pl,
+		Button:      btn,
+		Webhook:     wh,
+		Network:     netMgr,
+		TMDB:        tmdbCache,
+		Events:      events,
+		mode:        Mode(-1),
+		waitingPath: waitingPath,
+		cancel:      cancel,
 	}
+	if uc.CaptivePortal && netMgr.Available() {
+		app.workerWG.Add(1)
+		go func() { defer app.workerWG.Done(); netMgr.Watcher(ctx, 30*time.Second) }()
+	}
+	_ = app.Player.Volume(volumePercent(st.VolumeLevel))
 
 	if err := btn.Start(ctx, func() {
 		app.Events.Info("gpio", "BAILOUT pressed — skipping current track")
@@ -237,12 +296,7 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	// makes it idle to a black screen), kick the next item in the queue.
 	// Without this, the TV goes dark at the end of every episode and
 	// nothing brings it back until somebody clicks Skip in the UI.
-	p.OnEndFile(func() {
-		app.Events.Info("playback", "track ended → auto-advancing")
-		if err := app.PlayNext(); err != nil {
-			app.Events.Warnf("playback", "auto-advance failed: %v", err)
-		}
-	})
+	p.OnEndFile(app.advanceAfterEnd)
 
 	// Restore the saved queue so the dashboard's "Up next" populates
 	// immediately on boot. If the saved queue is empty (fresh install or
@@ -281,23 +335,43 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 
 	// Background position saver — every 10s persists the current track and
 	// playhead so a power-off at night picks back up the next morning.
-	go app.savePositionLoop(ctx, 10*time.Second)
+	app.workerWG.Add(1)
+	go func() { defer app.workerWG.Done(); app.savePositionLoop(ctx, 10*time.Second) }()
 
 	// Playback tracker — every 5s records minutes played vs paused and
 	// credits a "completion" the first time the playhead crosses 75%.
 	// Built so the weekly summary and per-episode "watched N times" both
 	// have ground-truth signal instead of just "started N times".
-	go app.playbackTracker(ctx, 5*time.Second)
+	app.workerWG.Add(1)
+	go func() { defer app.workerWG.Done(); app.playbackTracker(ctx, 5*time.Second) }()
 
 	// Schedule watcher — every minute, decide if we should be in playback
 	// or off-hours mode and switch if needed.
-	go app.modeWatcher(ctx, time.Minute)
+	app.workerWG.Add(1)
+	go func() { defer app.workerWG.Done(); app.modeWatcher(ctx, time.Minute) }()
 
 	// Media watcher — rescans every 30s so a USB drive plugged in after boot
 	// is picked up automatically and playback starts without any manual step.
-	go app.mediaWatcher(ctx, 30*time.Second)
+	app.workerWG.Add(1)
+	go func() { defer app.workerWG.Done(); app.mediaWatcher(ctx, 30*time.Second) }()
 
+	initialized = true
+	ready = true
 	return app, nil
+}
+
+// ShowBootScreen puts the appliance's branded card on HDMI before playback
+// initialization. Hold it long enough for someone walking past the display
+// to read the branded message and setup details before playback begins.
+func (a *App) ShowBootScreen() {
+	if a.waitingPath == "" {
+		return
+	}
+	if err := a.Player.Play(a.waitingPath); err != nil {
+		fmt.Printf("[jerry] boot screen unavailable: %v\n", err)
+		return
+	}
+	time.Sleep(10 * time.Second)
 }
 
 // mediaWatcher rescans the media root on each tick. When new files appear
@@ -338,8 +412,8 @@ func (a *App) mediaWatcher(ctx context.Context, interval time.Duration) {
 
 // modeWatcher ticks at interval, evaluates the configured schedules, and
 // switches mode if reality doesn't match. The initial mode is started by
-// StartCurrentMode after boot; starting it here races main's startup path and
-// can issue two mpv loadfile commands.
+// StartCurrentMode after the boot card; doing it here would race the main
+// startup path and issue two mpv loadfile commands.
 func (a *App) modeWatcher(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
@@ -348,15 +422,48 @@ func (a *App) modeWatcher(ctx context.Context, interval time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			a.applyQuietMode(time.Now())
 			a.applyDesiredMode(false)
 		}
 	}
 }
 
-// StartCurrentMode starts the configured playback/slideshow mode exactly once
-// after boot initialization has completed.
+// StartCurrentMode starts the mode selected at boot after the branded card
+// has finished. Keeping this explicit prevents modeWatcher from starting
+// playback concurrently with main's startup handoff.
 func (a *App) StartCurrentMode() {
-	a.applyDesiredMode(true)
+	a.startOnce.Do(func() {
+		a.applyQuietMode(time.Now())
+		a.applyDesiredMode(true)
+	})
+}
+
+// applyQuietMode mutes only HDMI audio; playback and episode progression
+// continue normally. Start/end may cross midnight (for example 22:00–07:00).
+func (a *App) applyQuietMode(now time.Time) {
+	st := a.Store.Get()
+	quiet := false
+	start, startErr := time.Parse("15:04", st.QuietStart)
+	end, endErr := time.Parse("15:04", st.QuietEnd)
+	if st.QuietModeEnabled && startErr == nil && endErr == nil {
+		cur := now.Hour()*60 + now.Minute()
+		s := start.Hour()*60 + start.Minute()
+		e := end.Hour()*60 + end.Minute()
+		if s < e {
+			quiet = cur >= s && cur < e
+		} else if s > e {
+			quiet = cur >= s || cur < e
+		}
+	}
+	a.quietMu.Lock()
+	defer a.quietMu.Unlock()
+	if quiet != a.quietActive {
+		if err := a.Player.Mute(quiet); err != nil {
+			fmt.Printf("[jerry] quiet mode mute=%t: %v\n", quiet, err)
+			return
+		}
+		a.quietActive = quiet
+	}
 }
 
 // applyDesiredMode switches the player between playback and slideshow when
@@ -436,6 +543,7 @@ func (a *App) PlayCurrent() error {
 			if err := a.Player.PlayAt(st.LastTrack, pos); err != nil {
 				return fmt.Errorf("resume: %w", err)
 			}
+			a.showEpisodeOverlay(st.LastTrack)
 			a.Webhook.Fire(webhook.Event{Type: "episode_resume", Path: st.LastTrack})
 			return nil
 		}
@@ -650,6 +758,41 @@ func (a *App) Current() string {
 // previous episode on next boot. Cumulative play count increments for
 // episode items only (commercials don't count).
 func (a *App) PlayNext() error {
+	a.advanceMu.Lock()
+	defer a.advanceMu.Unlock()
+	if a.closing.Load() {
+		return fmt.Errorf("app is shutting down")
+	}
+	return a.playNextLocked()
+}
+
+// Reject an EOF from a track replaced by a manual skip or a mode change.
+// Interstitial and next load share the same lock as manual/GPIO advances.
+func (a *App) advanceAfterEnd(endedPath string) {
+	a.advanceMu.Lock()
+	defer a.advanceMu.Unlock()
+	if a.closing.Load() {
+		return
+	}
+	if a.Current() != endedPath || a.CurrentMode() != ModePlayback {
+		return
+	}
+	if a.waitingPath != "" {
+		if err := a.Player.Play(a.waitingPath); err != nil {
+			a.Events.Warnf("playback", "interstitial: %v", err)
+		} else {
+			time.Sleep(900 * time.Millisecond)
+		}
+	}
+	if a.closing.Load() {
+		return
+	}
+	if err := a.playNextLocked(); err != nil {
+		a.Events.Warnf("playback", "auto-advance failed: %v", err)
+	}
+}
+
+func (a *App) playNextLocked() error {
 	next, err := a.Playlist.Next()
 	if err != nil {
 		return fmt.Errorf("playlist next: %w", err)
@@ -675,6 +818,7 @@ func (a *App) PlayNext() error {
 	if err := a.Player.Play(next.Path); err != nil {
 		return fmt.Errorf("play: %w", err)
 	}
+	a.showEpisodeOverlay(next.Path)
 	_ = a.Store.Update(func(s *State) {
 		s.LastTrack = next.Path
 		s.LastPositionSecs = 0
@@ -701,6 +845,35 @@ func (a *App) PlayNext() error {
 	return nil
 }
 
+func volumeLevel(level int) int {
+	if level < 1 || level > 10 {
+		return 5
+	}
+	return level
+}
+
+func volumePercent(level int) int {
+	// HDMI/monitor volume is perceived logarithmically. Keep the ten user
+	// points in the useful audible range instead of wasting most of them below
+	// the monitor's practical threshold.
+	curve := [...]int{50, 60, 68, 75, 81, 86, 90, 94, 97, 100}
+	return curve[volumeLevel(level)-1]
+}
+
+func (a *App) showEpisodeOverlay(path string) {
+	s, e, ok := tmdb.SuggestFileMatch(filepath.Base(path))
+	if !ok {
+		return
+	}
+	ep, err := a.TMDB.Episode(s, e)
+	if err != nil {
+		return
+	}
+	if err := a.Player.ShowEpisodeOverlay(ep.Name, ep.Overview, s, e); err != nil {
+		fmt.Printf("[jerry] episode overlay unavailable: %v\n", err)
+	}
+}
+
 // SnapshotQueue captures the engine's current upcoming items into State so
 // a reboot doesn't lose the lineup. Cheap — runs after every mutation.
 func (a *App) SnapshotQueue() {
@@ -724,24 +897,69 @@ func (a *App) ApplyState() {
 	for key, weight := range st.Weights {
 		a.Playlist.SetEpisodeWeight(key, weight)
 	}
-	a.Playlist.SetCommercialBlacklist(st.CommercialBlacklist)
-	for path, weight := range st.CommercialWeights {
-		a.Playlist.SetCommercialWeight(path, weight)
-	}
+	commercialBlacklist, commercialWeights := effectiveCommercialSettings(st)
+	a.Playlist.SetCommercialBlacklist(commercialBlacklist)
+	a.Playlist.SetCommercialWeights(commercialWeights)
 	a.Playlist.SetBreakSchedule(st.BreakAfterMinutes, st.CommercialsPerBreak)
 	a.Playlist.EnableCommercials(st.CommercialsEnabled)
+	_ = a.Player.Volume(volumePercent(st.VolumeLevel))
 	a.Webhook.SetURLs(st.WebhookOutbound)
+	a.applyQuietMode(time.Now())
 	// Schedule edits should take effect immediately, not on the next 60s tick.
 	a.applyDesiredMode(false)
 }
 
+// effectiveCommercialSettings overlays campaign controls on the existing
+// per-spot controls. This keeps old state files valid and lets operators use
+// either individual spot controls or named campaign rotations.
+func effectiveCommercialSettings(st State) ([]string, map[string]int) {
+	blocked := append([]string(nil), st.CommercialBlacklist...)
+	weights := make(map[string]int, len(st.CommercialWeights))
+	for path, weight := range st.CommercialWeights {
+		weights[path] = weight
+	}
+	for _, campaign := range st.CommercialCampaigns {
+		for _, path := range campaign.Files {
+			if !campaign.Enabled {
+				blocked = append(blocked, path)
+				continue
+			}
+			if campaign.Weight > 1 {
+				weights[path] = campaign.Weight
+			}
+		}
+	}
+	return blocked, weights
+}
+
 // Close shuts down subsystems cleanly.
 func (a *App) Close() error {
+	a.closing.Store(true)
+	if a.cancel != nil {
+		a.cancel()
+	}
+	defer a.Events.Close()
 	if a.Button != nil {
 		_ = a.Button.Close()
 	}
+	a.workerWG.Wait()
+	// Serialize the final position snapshot and player teardown against EOF,
+	// GPIO, and HTTP advances. New advances observe closing and are rejected.
+	a.advanceMu.Lock()
+	defer a.advanceMu.Unlock()
+	// Persist the freshest playhead before systemd terminates mpv. The
+	// periodic saver protects normal operation; this shutdown save protects
+	// reboot, power-cycle, and handoff tests that happen between ticks.
+	a.savePosition()
 	if a.Player != nil {
-		return a.Player.Close()
+		err := a.Player.Close()
+		if a.waitingPath != "" {
+			_ = os.Remove(a.waitingPath)
+		}
+		return err
+	}
+	if a.waitingPath != "" {
+		_ = os.Remove(a.waitingPath)
 	}
 	return nil
 }

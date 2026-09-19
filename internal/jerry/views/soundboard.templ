@@ -19,18 +19,27 @@ templ soundboardBody(vm SoundboardVM) {
 	<div class="grid grid-cols-1 gap-6">
 		<section class="rounded-2xl border border-zinc-200 bg-white/85 p-8 dark:border-white/10 dark:bg-zinc-900/55">
 			<div class="flex flex-wrap items-start justify-between gap-3">
-				<div>
+				<div class="min-w-0 max-w-full">
 					<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-500 dark:text-amber-400">Soundboard</p>
 					<h1 class="mt-2 display-title text-3xl text-amber-500 dark:text-amber-400">SLAP THE BUTTON</h1>
 					<p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
 						One button per audio file in
-						<code class="font-mono text-amber-600 dark:text-amber-400">{ vm.SoundDir }</code>.
+						<code class="break-all font-mono text-amber-600 dark:text-amber-400">{ vm.SoundDir }</code>.
 						Drop in <code>.mp3</code> / <code>.ogg</code> / <code>.wav</code> / <code>.m4a</code> files,
 						hit Rescan, and they appear.
 					</p>
 				</div>
 				<a href="/soundboard" class="btn btn-sm" data-testid="soundboard-rescan">↻ Rescan</a>
 			</div>
+		</section>
+
+		<section class="rounded-2xl border border-amber-500/30 bg-amber-950/10 p-8">
+			<p class="font-mono text-xs uppercase tracking-[0.2em] text-amber-400">Add a sound</p>
+			<form method="POST" action="/soundboard/upload" enctype="multipart/form-data" class="mt-4 flex flex-wrap gap-3">
+				<input type="file" name="sound_file" accept=".mp3,.ogg,.wav,.m4a,.flac" required class="min-w-0 max-w-full flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm" />
+				<button class="btn btn-primary">Upload sound</button>
+			</form>
+			<p class="mt-2 text-xs text-zinc-500">MP3, OGG, WAV, M4A, or FLAC · maximum 100 MB.</p>
 		</section>
 
 		if len(vm.Clips) == 0 {

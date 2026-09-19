@@ -4,14 +4,13 @@ go 1.25.0
 
 require (
 	github.com/a-h/templ v0.3.1020
+	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	github.com/yuin/goldmark v1.8.2
 	golang.org/x/crypto v0.50.0
+	golang.org/x/image v0.39.0
+	golang.org/x/mod v0.37.0
+	golang.org/x/sys v0.43.0
 	periph.io/x/conn/v3 v3.7.3
 	periph.io/x/host/v3 v3.8.5
-)
-
-require (
-	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
-	github.com/yuin/goldmark v1.8.2 // indirect
-	golang.org/x/image v0.39.0 // indirect
-	golang.org/x/mod v0.37.0 // indirect
 )
