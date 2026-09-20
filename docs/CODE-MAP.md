@@ -9,6 +9,7 @@ This is a routing index, not a copy of source. Find current line numbers with
 | Playback orchestration, quiet hours, shutdown | `internal/jerry/app.go`: `StartCurrentMode`, `advanceAfterEnd`, `applyQuietMode`, `Close` | `internal/jerry/migration_test.go` |
 | mpv commands, EOF, resume, subprocess recovery | `internal/player/player.go`; `stub.go` | `internal/player/migration_test.go`; opt-in real mpv |
 | Frozen clock / bounded recovery / readiness | `internal/player/progress.go`; `internal/jerry/playback_health.go` | `progress_test.go`, `responsive_stall_test.go`, opt-in `stall_integration_test.go`; `docs/PLAYBACK-STALL-INVESTIGATION.md` |
+| Approved Pi recovery tests / read-only overnight soak | `scripts/test-live-recovery.py` (disruptive); `scripts/soak-playback.py` (read-only) | `scripts/test_soak_playback.py`; `docs/PLAYBACK-PROTECTION-DEPLOYMENT.md` |
 | Persistent settings / migration | `internal/jerry/state.go`: `NewStore`, `Get`, `Update` | `state_test.go`, `migration_test.go` |
 | Routes, health identity, event export | `internal/jerry/http.go`: `NewServer` | `events_http_test.go`, `auth_http_test.go` |
 | Commercial campaigns | `internal/jerry/campaign_http.go`; `effectiveCommercialSettings` in `app.go` | `uploads_e2e_test.go` |

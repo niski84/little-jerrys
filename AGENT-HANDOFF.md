@@ -3,10 +3,12 @@
 Updated 2026-09-19. **One product, one active repository: Little Jerry's.**
 
 **Current live status:** canonical app deployed from clean commit
-`e4d84769081ede8e9fb67b54f6ea381a9e94dae0`; health, retained export and real
-HDMI/audio/advancing playback passed. Legacy auto-update is disabled; the separate
-maintainer executor remains inactive. See `docs/DEPLOYMENT-2026-09-19.md` for
-exact artifact and full recovery snapshot. Pre-bootstrap evidence below is historical.
+`e9806357031bed1ad15f039baabf13c2d6f0d5e2`, including bounded playback recovery
+and readiness. Deployment HDMI/audio/progress checks passed; restaurant acceptance
+remains blocked pending reliability evidence. Legacy auto-update is disabled; the
+separate maintainer executor remains inactive. See
+`docs/PLAYBACK-PROTECTION-DEPLOYMENT.md` for live tests, soak status, exact artifact
+and recovery snapshot. Pre-bootstrap evidence below is historical.
 
 | Name | Meaning |
 |---|---|

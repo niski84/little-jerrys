@@ -2,9 +2,11 @@
 
 **Current priority: playback reliability.** The deployed build later stalled
 despite healthy liveness. It was manually recovered; restaurant acceptance is
-blocked. New local progress/recovery/readiness changes and evidence are tracked
-in `PLAYBACK-STALL-INVESTIGATION.md`. These changes are not yet deployed. The
-successful bootstrap record below is historical, not unattended acceptance.
+blocked. Progress/recovery/readiness changes are now deployed as clean release
+`e9806357031bed1ad15f039baabf13c2d6f0d5e2`; see
+`PLAYBACK-PROTECTION-DEPLOYMENT.md` for controlled tests and overnight soak status.
+The original stall trigger remains unproven. The successful bootstrap record
+below is historical, not unattended acceptance.
 
 **App committed and deployed after operator approval.** Clean release
 `e4d84769081ede8e9fb67b54f6ea381a9e94dae0` passed live health, retained export and

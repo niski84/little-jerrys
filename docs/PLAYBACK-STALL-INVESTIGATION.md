@@ -70,9 +70,10 @@ override an operator. The old PID/HTTP watchdog remains liveness-only; do not
 point it at readiness and accidentally reset the bounded recovery budget by
 restarting the whole app in an endless loop.
 
-No new build has been deployed by this investigation. Keep restaurant release
-blocked until the new diagnostics/recovery build passes the approved physical
-tests and soak; the currently running version still lacks these protections.
+The operator subsequently approved deployment and controlled interruptions.
+Clean protection release `e9806357` is now installed; see
+`PLAYBACK-PROTECTION-DEPLOYMENT.md` for live results and the pending soak outcome.
+Keep restaurant release blocked until the remaining acceptance evidence exists.
 
 ## Verification
 
@@ -102,16 +103,17 @@ Final post-fix verification all passed (exit 0):
 - Final read-only live smoke: existing deployed build still had HDMI/audio and
   advancing playback. No new live binary or service configuration was installed.
 
-Changes remain uncommitted. Next authority needed: a controlled deployment and
-physical fault-testing window with playback interruptions, followed by a long
-hardware soak. Keep provenance and rollback safeguards from the migration plan.
+The following describes the pre-deployment verification. Changes were subsequently
+committed and the approved deployment/live testing window began; current results
+and rollback provenance are recorded in `PLAYBACK-PROTECTION-DEPLOYMENT.md`.
 
 Before restaurant acceptance: demonstrate stuck-but-responsive recovery,
 unresponsive-process recovery, no interference with deliberate pause/off-hours,
 finite retry behavior and visible failure; verify repeated real episode/advert
 boundaries and a long physical HDMI/audio soak. Controlled live fault injection
 and a new deployment require an approved window. No such faults were injected
-on the running Pi during this investigation.
+during the initial diagnostic phase; the subsequently approved tests are recorded
+separately in the deployment report.
 
 Sources for interpretation: [Raspberry Pi throttle bits](https://www.raspberrypi.com/documentation/computers/os.html#get_throttled)
 and [mpv JSON IPC log/event protocol](https://mpv.io/manual/stable/#json-ipc).
