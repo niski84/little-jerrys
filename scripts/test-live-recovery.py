@@ -62,7 +62,7 @@ def until_ready(seconds=30):
             if code==200 and result['playback']['state']=='playing':
                 before=ipc('time-pos');time.sleep(1)
                 if ipc('time-pos')>before:return result
-        except (OSError,ValueError,AssertionError): pass
+        except (OSError,ValueError,AssertionError,RuntimeError): pass
         time.sleep(1)
     raise RuntimeError('playback did not become ready and advance')
 
@@ -96,7 +96,11 @@ def main():
         while time.monotonic()<deadline:
             code,result=get('/api/ready')
             observed_unready |= code==503
-            if mpv_pid()!=victim and code==200 and result['playback']['state']=='playing':break
+            try:
+                replacement=mpv_pid()
+            except (subprocess.CalledProcessError,FileNotFoundError,AssertionError):
+                replacement=None  # Expected briefly while the owned player respawns.
+            if replacement and replacement!=victim and code==200 and result['playback']['state']=='playing':break
             time.sleep(2)
         else:raise RuntimeError('no autonomous frozen-process recovery within 90s')
         assert observed_unready,'freeze was never exposed by readiness'
@@ -124,7 +128,10 @@ def main():
         post('/api/seek',{'secs':duration-3})
         deadline=time.monotonic()+40
         while time.monotonic()<deadline:
-            current=ipc('path')
+            try: current=ipc('path')
+            except (OSError,AssertionError,RuntimeError):
+                time.sleep(1)
+                continue
             if current!=path and not current.endswith(('.png','.jpg','.jpeg')):break
             time.sleep(1)
         else:raise RuntimeError('no automatic next episode after EOF')
