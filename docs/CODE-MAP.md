@@ -8,6 +8,7 @@ This is a routing index, not a copy of source. Find current line numbers with
 | Boot and updater activation | `cmd/little-jerrys/main.go`, `internal/jerry/config.go` | app tests; ARM64 build |
 | Playback orchestration, quiet hours, shutdown | `internal/jerry/app.go`: `StartCurrentMode`, `advanceAfterEnd`, `applyQuietMode`, `Close` | `internal/jerry/migration_test.go` |
 | mpv commands, EOF, resume, subprocess recovery | `internal/player/player.go`; `stub.go` | `internal/player/migration_test.go`; opt-in real mpv |
+| Frozen clock / bounded recovery / readiness | `internal/player/progress.go`; `internal/jerry/playback_health.go` | `progress_test.go`, `responsive_stall_test.go`, opt-in `stall_integration_test.go`; `docs/PLAYBACK-STALL-INVESTIGATION.md` |
 | Persistent settings / migration | `internal/jerry/state.go`: `NewStore`, `Get`, `Update` | `state_test.go`, `migration_test.go` |
 | Routes, health identity, event export | `internal/jerry/http.go`: `NewServer` | `events_http_test.go`, `auth_http_test.go` |
 | Commercial campaigns | `internal/jerry/campaign_http.go`; `effectiveCommercialSettings` in `app.go` | `uploads_e2e_test.go` |
@@ -29,6 +30,7 @@ go test -race ./...
 go vet ./...
 JERRY_REAL_MPV_TEST=1 go test -race ./internal/player -run TestRealMPVMigration -count=1
 JERRY_BROWSER_TEST=1 go test ./internal/jerry -run TestMigrationBrowserSmoke -count=1 -v
+JERRY_STALL_TEST=1 go test -race ./internal/player -run TestRealMPVRecoversUnresponsiveProcess -count=1 -v
 go run github.com/a-h/templ/cmd/templ generate -path internal/jerry/views
 npm run build:css
 ```

@@ -1,5 +1,11 @@
 # Migration checkpoint — 2026-09-19
 
+**Current priority: playback reliability.** The deployed build later stalled
+despite healthy liveness. It was manually recovered; restaurant acceptance is
+blocked. New local progress/recovery/readiness changes and evidence are tracked
+in `PLAYBACK-STALL-INVESTIGATION.md`. These changes are not yet deployed. The
+successful bootstrap record below is historical, not unattended acceptance.
+
 **App committed and deployed after operator approval.** Clean release
 `e4d84769081ede8e9fb67b54f6ea381a9e94dae0` passed live health, retained export and
 HDMI/audio/advancing playback. See [the deployment record](DEPLOYMENT-2026-09-19.md).

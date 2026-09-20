@@ -52,7 +52,7 @@ func NewServer(app *App) http.Handler {
 		mux.Handle("GET /tmdb/", http.StripPrefix("/tmdb/", http.FileServer(http.FS(tmdbFS))))
 	}
 
-	// Health — public for monitoring.
+	// Liveness is HTTP 200; playback readiness is separately enforced below.
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		revision, modified := "", "unknown"
 		if info, ok := debug.ReadBuildInfo(); ok {
@@ -65,7 +65,20 @@ func NewServer(app *App) http.Handler {
 				}
 			}
 		}
-		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "little-jerrys", "version": app.Cfg.Version, "revision": revision, "modified": modified, "device_id": app.Events.Since("", 0, 1).Stream, "auto_update": strconv.FormatBool(app.Cfg.AutoUpdate)})
+		playback, ready := playbackReadiness(app)
+		status := "ok"
+		if !ready {
+			status = "degraded"
+		}
+		respondJSON(w, http.StatusOK, map[string]string{"status": status, "liveness": "ok", "playback_state": playback.State, "playback_ready": strconv.FormatBool(ready), "service": "little-jerrys", "version": app.Cfg.Version, "revision": revision, "modified": modified, "device_id": app.Events.Since("", 0, 1).Stream, "auto_update": strconv.FormatBool(app.Cfg.AutoUpdate)})
+	})
+	mux.HandleFunc("GET /api/ready", func(w http.ResponseWriter, r *http.Request) {
+		playback, ready := playbackReadiness(app)
+		code := http.StatusOK
+		if !ready {
+			code = http.StatusServiceUnavailable
+		}
+		respondJSON(w, code, map[string]any{"ready": ready, "playback": playback})
 	})
 
 	// Runtime-uploaded soundboard clips. Public-ish (the soundboard page

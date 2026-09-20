@@ -1,5 +1,11 @@
 # Little Jerry's app deployment — 2026-09-19
 
+**Later incident:** this build subsequently stalled while still responding to
+health/IPC. Playback was manually recovered. Brief deployment smoke is not
+restaurant acceptance; see `PLAYBACK-STALL-INVESTIGATION.md`. The journal check
+below covered service lifecycle only: app output was directed to `/dev/tty1`,
+and mpv diagnostics were discarded. It could not exclude player errors.
+
 Operator explicitly approved commit and deployment. Completed on the verified
 Pi `192.168.4.40:8089`, Wi-Fi MAC `b8:27:eb:cc:86:85`.
 

@@ -219,15 +219,15 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	} else {
 		// Close saves the last position before terminating mpv.
 		p, err = player.New(context.WithoutCancel(ctx), player.Config{
-			SocketPath: cfg.MpvSocket,
-			Fullscreen: true,
-			HWDecode:   true,
-			AudioOut:   cfg.MpvAO,
-			VideoOut:   cfg.MpvVO,
+			SocketPath:   cfg.MpvSocket,
+			Fullscreen:   true,
+			HWDecode:     true,
+			AudioOut:     cfg.MpvAO,
+			VideoOut:     cfg.MpvVO,
+			OnDiagnostic: func(message string) { events.Warn("player", message) },
 		})
 		if err != nil {
-			fmt.Printf("[jerry] mpv unavailable, falling back to stub: %v\n", err)
-			p = player.NewStub()
+			return nil, fmt.Errorf("production playback unavailable: %w", err)
 		}
 	}
 

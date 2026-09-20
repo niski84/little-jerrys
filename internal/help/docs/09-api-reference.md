@@ -33,7 +33,8 @@ cookie obtained from `POST /login`. All paths are relative to
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| `GET` | `/api/health` | Public | Status/service, release version, Go VCS revision/modified state, and stable device ID. Development builds may lack a clean revision. |
+| `GET` | `/api/health` | Public | HTTP 200 liveness; JSON status is degraded when playback is not ready. Includes playback_state/playback_ready, release revision and stable device ID. |
+| `GET` | `/api/ready` | Public | Cached playback observations; 200 for verified progress or expected pause/static/slideshow, 503 for unverified/starting/stalled/recovering/failed playback. Not a trigger for unbounded service restarts. |
 | `GET` | `/api/status` | Auth | Live state JSON: `now_playing`, `position_secs`, `duration_secs`, `paused`, `queue_remaining`, `upcoming[8]`, `mode`, `season`, `episode`, `now_title` |
 | `GET` | `/api/events/recent?n=N` | Auth | Last N events from the in-process ring (default 20, max 200). Newest first. |
 | `GET` | `/api/events/export?stream=ID&after=N&limit=200` | Auth | Retained structured events, oldest first, with durable sequence/stream cursor, boot identity and explicit retention/storage gaps. |

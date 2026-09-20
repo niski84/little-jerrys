@@ -67,11 +67,12 @@ type Status struct {
 
 // Config configures the mpv process.
 type Config struct {
-	SocketPath string // /tmp/mpv-jerry.sock
-	Fullscreen bool
-	HWDecode   bool   // --hwdec=auto for Pi
-	AudioOut   string // --ao override, e.g. "null" in containers
-	VideoOut   string // --vo override, e.g. "x11" in containers
+	SocketPath   string // /tmp/mpv-jerry.sock
+	Fullscreen   bool
+	HWDecode     bool   // --hwdec=auto for Pi
+	AudioOut     string // --ao override, e.g. "null" in containers
+	VideoOut     string // --vo override, e.g. "x11" in containers
+	OnDiagnostic func(message string)
 }
 
 // New starts (or returns a stub of) an mpv-backed player. The returned Player
@@ -83,6 +84,7 @@ func New(ctx context.Context, cfg Config) (Player, error) {
 		cancel()
 		return nil, fmt.Errorf("spawn mpv: %w", err)
 	}
+	go p.progressLoop(ctx)
 	return p, nil
 }
 
@@ -99,6 +101,12 @@ type mpvPlayer struct {
 	lastPosition time.Duration
 	muted        bool
 	volume       int
+	intent       uint64
+	healthMu     sync.RWMutex
+	health       PlaybackHealth
+	healthAt     time.Time
+	logMu        sync.Mutex
+	lastLogAt    time.Time
 
 	// reqID is incremented for each IPC request so responses can be matched.
 	reqMu sync.Mutex
@@ -166,7 +174,24 @@ func (p *mpvPlayer) spawn(ctx context.Context) error {
 	// naturally (reason=eof). Without this the TV goes black at the end
 	// of every track because --keep-open=no makes mpv unload back to idle.
 	eventCtx, stopEvents := context.WithCancel(ctx)
-	go p.eventLoop(eventCtx)
+	ready := make(chan error, 1)
+	go p.eventLoop(eventCtx, ready)
+	// Commands must not load the first file before its file-loaded event can
+	// be observed; otherwise endSeen stays armed against every later EOF.
+	var observerErr error
+	select {
+	case observerErr = <-ready:
+	case <-ctx.Done():
+		observerErr = ctx.Err()
+	case <-time.After(12 * time.Second):
+		observerErr = fmt.Errorf("mpv event subscription timed out")
+	}
+	if observerErr != nil {
+		stopEvents()
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return observerErr
+	}
 
 	// Supervisor: if mpv dies, log and respawn after a short backoff.
 	go func() {
@@ -279,12 +304,13 @@ func (p *mpvPlayer) ShowEpisodeOverlay(title, synopsis string, season, episode i
 // On any read error (mpv crashed, connection dropped) the loop exits;
 // the spawn() supervisor will restart mpv and a fresh eventLoop will be
 // kicked off as part of that respawn.
-func (p *mpvPlayer) eventLoop(ctx context.Context) {
+func (p *mpvPlayer) eventLoop(ctx context.Context, ready chan<- error) {
 	// Wait for the socket — mpv hasn't necessarily created it yet by the
 	// time we get here.
 	var conn net.Conn
 	for i := 0; i < 100; i++ {
 		if ctx.Err() != nil {
+			ready <- ctx.Err()
 			return
 		}
 		c, err := net.DialTimeout("unix", p.cfg.SocketPath, 500*time.Millisecond)
@@ -296,6 +322,7 @@ func (p *mpvPlayer) eventLoop(ctx context.Context) {
 	}
 	if conn == nil {
 		fmt.Printf("[player] event loop: socket never appeared at %s\n", p.cfg.SocketPath)
+		ready <- fmt.Errorf("mpv event socket unavailable")
 		return
 	}
 	defer conn.Close()
@@ -305,8 +332,15 @@ func (p *mpvPlayer) eventLoop(ctx context.Context) {
 	// polling two properties four times per second or guessing from duration.
 	if err := json.NewEncoder(conn).Encode(map[string]any{"command": []any{"observe_property", 1, "eof-reached"}}); err != nil {
 		fmt.Printf("[player] observe EOF: %v\n", err)
+		ready <- err
 		return
 	}
+	if err := json.NewEncoder(conn).Encode(map[string]any{"command": []any{"request_log_messages", "warn"}}); err != nil {
+		p.diagnostic("mpv warning subscription failed")
+		ready <- err
+		return
+	}
+	ready <- nil
 
 	// Debounce token. mpv emits a second end-file (reason=stop) for the
 	// previously-loaded entry every time we issue loadfile, even when
@@ -327,6 +361,10 @@ func (p *mpvPlayer) eventLoop(ctx context.Context) {
 			return
 		}
 		evt, _ := msg["event"].(string)
+		if evt == "log-message" {
+			p.logMPVMessage(msg)
+			continue
+		}
 		if evt == "file-loaded" {
 			p.endStateMu.Lock()
 			p.endSeen = false
@@ -360,14 +398,22 @@ func (p *mpvPlayer) OnEndFile(cb func(string)) {
 }
 
 func (p *mpvPlayer) dialSocket() (net.Conn, error) {
-	for i := 0; i < 100; i++ {
-		c, err := net.DialTimeout("unix", p.cfg.SocketPath, 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("dial mpv socket %s: %w", p.cfg.SocketPath, err)
+		}
+		c, err := net.DialTimeout("unix", p.cfg.SocketPath, 150*time.Millisecond)
 		if err == nil {
 			return c, nil
 		}
-		time.Sleep(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("dial mpv socket %s: %w", p.cfg.SocketPath, ctx.Err())
+		case <-time.After(50 * time.Millisecond):
+		}
 	}
-	return nil, fmt.Errorf("dial mpv socket: timed out waiting for %s", p.cfg.SocketPath)
 }
 
 func (p *mpvPlayer) command(args ...interface{}) error {
@@ -429,17 +475,27 @@ func (p *mpvPlayer) command(args ...interface{}) error {
 // query sends a command and waits for the matching response by request_id,
 // then returns the data field. Used for get_property calls.
 func (p *mpvPlayer) query(args ...interface{}) (interface{}, error) {
+	return p.queryContext(context.Background(), args...)
+}
+
+func (p *mpvPlayer) queryContext(parent context.Context, args ...interface{}) (interface{}, error) {
+	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
+	defer cancel()
 	p.reqMu.Lock()
 	p.reqID++
 	id := p.reqID
 	p.reqMu.Unlock()
 
-	conn, err := p.dialSocket()
+	conn, err := p.dialSocketContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
+	deadline := time.Now().Add(2 * time.Second)
+	if parentDeadline, ok := ctx.Deadline(); ok && parentDeadline.Before(deadline) {
+		deadline = parentDeadline
+	}
+	_ = conn.SetDeadline(deadline)
 
 	payload, _ := json.Marshal(map[string]interface{}{
 		"command":    args,
@@ -476,6 +532,7 @@ func (p *mpvPlayer) Play(path string) error {
 	p.endSeen = true // re-arm only after mpv confirms file-loaded
 	p.endStateMu.Unlock()
 	p.mu.Lock()
+	p.intent++
 	p.current = path
 	p.slideshow = false
 	p.lastPosition = 0
@@ -494,6 +551,15 @@ func (p *mpvPlayer) Play(path string) error {
 func (p *mpvPlayer) PlayAt(path string, start time.Duration) error {
 	p.loadMu.Lock()
 	defer p.loadMu.Unlock()
+	p.mu.Lock()
+	p.intent++
+	p.mu.Unlock()
+	return p.playAtLocked(path, start)
+}
+
+// playAtLocked loads and resumes a path while loadMu is held. Recovery uses
+// this helper too, so it never recursively acquires loadMu.
+func (p *mpvPlayer) playAtLocked(path string, start time.Duration) error {
 	if err := p.prepareEpisode(start); err != nil {
 		return err
 	}
@@ -547,6 +613,7 @@ func (p *mpvPlayer) PlaySlideshow(paths []string, secsPer int) error {
 		secsPer = 8
 	}
 	p.mu.Lock()
+	p.intent++
 	p.slideshow = true
 	p.mu.Unlock()
 	if err := p.command("set_property", "options/start", "0"); err != nil {
@@ -608,21 +675,32 @@ func (p *mpvPlayer) Duration() (time.Duration, error) {
 }
 
 func (p *mpvPlayer) Seek(pos time.Duration) error {
+	p.loadMu.Lock()
+	defer p.loadMu.Unlock()
 	if pos < 0 {
 		pos = 0
 	}
+	p.mu.Lock()
+	p.intent++
+	p.mu.Unlock()
 	return p.command("seek", pos.Seconds(), "absolute")
 }
 
 func (p *mpvPlayer) Pause() error {
+	p.loadMu.Lock()
+	defer p.loadMu.Unlock()
 	p.mu.Lock()
+	p.intent++
 	p.paused = true
 	p.mu.Unlock()
 	return p.command("set_property", "pause", true)
 }
 
 func (p *mpvPlayer) Resume() error {
+	p.loadMu.Lock()
+	defer p.loadMu.Unlock()
 	p.mu.Lock()
+	p.intent++
 	p.paused = false
 	p.mu.Unlock()
 	if err := p.command("set_property", "pause", false); err != nil {
@@ -681,12 +759,15 @@ func (p *mpvPlayer) ShowOSD(message string, dur time.Duration) error {
 }
 
 func (p *mpvPlayer) Close() error {
+	p.loadMu.Lock()
+	defer p.loadMu.Unlock()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.closed {
 		return nil
 	}
 	p.closed = true
+	p.intent++
 	if p.cancel != nil {
 		p.cancel()
 	}
