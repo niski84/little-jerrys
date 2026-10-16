@@ -40,8 +40,8 @@ chmod 1777 /tmp
 ROOT_PART=$(readlink -f "$(findmnt -n -o SOURCE /)")
 [[ -b "$ROOT_PART" ]] || fail "cannot identify the root block device: $ROOT_PART"
 ROOT_DISK_NAME=$(lsblk -n -o PKNAME "$ROOT_PART" | head -1)
-ROOT_PART_NUMBER=$(lsblk -n -o PARTN "$ROOT_PART" | head -1)
-[[ -n "$ROOT_DISK_NAME" && -n "$ROOT_PART_NUMBER" ]] || fail "cannot determine root disk and partition number"
+ROOT_PART_NUMBER=$(cat "/sys/class/block/$(basename "$ROOT_PART")/partition")
+[[ -n "$ROOT_DISK_NAME" && "$ROOT_PART_NUMBER" =~ ^[0-9]+$ ]] || fail "cannot determine root disk and partition number"
 ROOT_DISK="/dev/$ROOT_DISK_NAME"
 log "growing root partition $ROOT_PART_NUMBER on $ROOT_DISK to fill the SD card"
 if GROW_OUTPUT=$(growpart "$ROOT_DISK" "$ROOT_PART_NUMBER" 2>&1); then
