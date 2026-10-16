@@ -36,7 +36,7 @@ templ layoutShell(title, bgURL, imgOpacity, tintClasses string, withNav bool, co
 					try {
 						var k = "jerry-theme";
 						var s = localStorage.getItem(k);
-						var dark = s === "light" ? false : true;
+						var dark = s === "dark" || (s !== "light" && !window.matchMedia('(prefers-color-scheme: light)').matches);
 						document.documentElement.classList.toggle("dark", dark);
 					} catch (e) {
 						document.documentElement.classList.add("dark");
@@ -56,8 +56,8 @@ templ layoutShell(title, bgURL, imgOpacity, tintClasses string, withNav bool, co
 			<link rel="icon" type="image/png" sizes="192x192" href="/static/favicon-192.png"/>
 			<link rel="apple-touch-icon" href="/static/favicon-192.png"/>
 			<link rel="shortcut icon" href="/static/favicon.ico"/>
-			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
-			<script defer src="https://unpkg.com/alpinejs@3.13.10/dist/cdn.min.js"></script>
+			<script src="/static/vendor/htmx-1.9.12.min.js"></script>
+			<script defer src="/static/vendor/alpine-3.13.10.min.js"></script>
 		</head>
 		<body class="min-h-full font-mono transition-colors">
 			<!-- Per-page background image — opacity is variant-driven (ambient vs feature). -->

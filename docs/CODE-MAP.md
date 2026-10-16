@@ -16,6 +16,8 @@ This is a routing index, not a copy of source. Find current line numbers with
 | Upload limits / atomic publication | `internal/jerry/uploads.go`, `upload_publish_{linux,other}.go` | `uploads_test.go` |
 | Playlist / weights | `internal/playlist/playlist.go` | `playlist_test.go` |
 | Recovery Wi-Fi safety | `internal/network/network.go`: `Watcher`, `HasInternet`, `EnsureAPProfile` | `migration_test.go`; physical changes separately approved |
+| USB-to-SD import / filename matching / completeness | `internal/library/`, `internal/episodeid/`; `views/library.templ`; `JERRY_IMPORT_ROOT` | importer/identity tests; `TestLibraryImportBrowser`; `docs/PI-RELEASE.md` |
+| Fresh Pi image / first boot / release assets | `scripts/build-pi-image.sh`, `scripts/package-pi-release.sh`, `deploy/firstboot/` | exact clean ARM64 metadata; image inspection; physical Pi 4 acceptance separately |
 | Media selection / splash | `internal/mediaroot/`, `internal/splash/splash.go` | media-root tests; preview |
 | Dashboard, settings, soundboard | `internal/jerry/views/*.templ`, `web/styles/input.css` | generated templates + browser smoke |
 | Durable journal | `internal/eventlog/{eventlog,journal}.go` | journal tests + authenticated exporter tests |

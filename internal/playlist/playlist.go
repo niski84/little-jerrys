@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/niski84/little-jerrys/internal/episodeid"
 )
 
 // ItemKind labels what a queue entry represents.
@@ -336,10 +338,8 @@ func (e *Engine) LoadQueue(items []Item) {
 func (e *Engine) ResolvePathForEpisode(season, episode int) string {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	want := fmt.Sprintf("s%02de%02d", season, episode)
 	for _, p := range e.all {
-		base := strings.ToLower(filepath.Base(p))
-		if strings.HasPrefix(base, want) || strings.Contains(base, "_"+want) {
+		if episodeid.Contains(episodeid.Parse(p), season, episode) {
 			return p
 		}
 	}
@@ -420,15 +420,20 @@ func (e *Engine) weightedEpisodePool() []string {
 		// Both blacklist and weight live in SNNENN-keyed maps (parsed
 		// from filename). Files without a parseable name pass through
 		// with weight 1 and never get blocked.
-		key := episodeKeyFromPath(p)
-		if key != "" && e.blacklist[key] {
-			continue
-		}
 		mult := 1
-		if key != "" {
-			if w, ok := e.weights[key]; ok && w > 1 {
+		blocked := false
+		for _, id := range episodeid.Parse(p) {
+			key := id.String()
+			if e.blacklist[key] {
+				blocked = true
+				break
+			}
+			if w := e.weights[key]; w > mult {
 				mult = w
 			}
+		}
+		if blocked {
+			continue
 		}
 		for i := 0; i < mult; i++ {
 			pool = append(pool, p)
@@ -440,19 +445,8 @@ func (e *Engine) weightedEpisodePool() []string {
 // episodeKeyFromPath returns "S02E11" for a filename like "s02e11_chinese.mp4".
 // Returns "" if the filename doesn't carry a parseable sNNeNN.
 func episodeKeyFromPath(path string) string {
-	name := strings.ToLower(filepath.Base(path))
-	if dot := strings.LastIndex(name, "."); dot > 0 {
-		name = name[:dot]
-	}
-	for i := 0; i+5 < len(name); i++ {
-		if name[i] != 's' {
-			continue
-		}
-		var s, ep int
-		n, _ := fmt.Sscanf(name[i:], "s%de%d", &s, &ep)
-		if n == 2 && s > 0 && ep > 0 {
-			return fmt.Sprintf("S%02dE%02d", s, ep)
-		}
+	if ids := episodeid.Parse(path); len(ids) > 0 {
+		return ids[0].String()
 	}
 	return ""
 }

@@ -1,0 +1,72 @@
+package views
+
+import "fmt"
+import "github.com/niski84/little-jerrys/internal/library"
+
+templ LibraryStatus(s library.Status) {
+	<section id="library-status" data-testid="library-status" class="min-w-0 rounded-2xl border border-amber-500/30 bg-white/80 p-5 text-slate-900 dark:bg-zinc-900/50 dark:text-zinc-100 sm:p-8" aria-live="polite">
+		<p class="font-mono text-xs uppercase tracking-wide text-amber-700 dark:text-amber-400">Seinfeld library · SD card</p>
+		<div class="mt-3 flex flex-wrap items-end justify-between gap-3">
+			<h2 class="text-2xl font-bold">{ fmt.Sprintf("%d of %d episodes on SD",s.Present,s.Total) }</h2>
+			<span class="rounded-full border border-amber-500/40 px-3 py-1 text-xs capitalize">{ s.Phase }</span>
+		</div>
+		<progress class="progress progress-warning mt-4 w-full" value={ intStr(s.Present) } max={ intStr(s.Total) } aria-label="Episodes stored locally"></progress>
+		<p class="mt-2 text-sm">{ fmt.Sprintf("%d missing · %s free on SD",s.Missing,library.HumanBytes(s.FreeBytes)) }</p>
+		if s.CurrentFile != "" {
+			<p class="mt-4 break-all font-semibold">{ s.CurrentFile }</p>
+			<p class="mt-1 text-xs">{ fmt.Sprintf("%s of %s copied for this file",library.HumanBytes(uint64(s.CopiedBytes)),library.HumanBytes(uint64(s.TotalBytes))) }</p>
+		}
+		if s.SafeToRemove {
+			<p class="mt-4 text-sm text-emerald-800 dark:text-emerald-300">No transfer is running. You can remove the USB drive; episodes already on SD play without it.</p>
+		} else {
+			<p class="mt-4 text-sm font-semibold text-amber-800 dark:text-amber-300">Keep the USB drive connected and the Pi powered while files are scanned, copied and verified.</p>
+		}
+		if s.Error != "" {
+			<p class="mt-4 break-words rounded-lg border border-red-500/40 p-3 text-sm text-red-800 dark:text-red-300" role="alert">{ s.Error }</p>
+		}
+		<p id="library-connection" class="mt-2 text-sm text-red-800 dark:text-red-300"></p>
+		<form method="POST" action="/settings/library/rescan" class="mt-4">
+			<button type="submit" class="btn btn-primary" data-testid="library-rescan">Rescan / retry imports</button>
+		</form>
+		<details class="mt-5 rounded-lg border border-slate-300 p-4 dark:border-white/10" data-section="files">
+			<summary class="cursor-pointer font-semibold">USB import results and errors ({ intStr(len(s.Results)) })</summary>
+			if len(s.Results)==0 {
+				<p class="mt-3 text-sm">Insert one USB drive containing your episodes. Subfolders are scanned automatically.</p>
+			}
+			<ul class="mt-3 space-y-3 text-sm">
+				for _, result := range s.Results {
+					<li class="break-words border-b border-slate-200 pb-3 dark:border-white/10">
+						<p class="break-all font-semibold">{ result.Source }</p>
+						<p>{ result.Status }{ ": " + result.Message }</p>
+						if result.Target != "" {
+							<p class="mt-1 break-all font-mono text-xs">{ result.Target }</p>
+						}
+					</li>
+				}
+			</ul>
+		</details>
+		<details class="mt-3 rounded-lg border border-slate-300 p-4 dark:border-white/10" data-section="episodes">
+			<summary class="cursor-pointer font-semibold">All 9 seasons · episode checklist</summary>
+			<p class="mt-2 text-xs">The catalog counts both parts of a two-part episode. A verified combined file can cover both entries.</p>
+			<ul class="mt-3 space-y-2 text-sm" data-testid="library-checklist">
+				for _, episode := range s.Episodes {
+					<li class="flex flex-wrap justify-between gap-x-3 border-b border-slate-200 py-2 dark:border-white/10">
+						<span class="min-w-0 break-words">{ episode.Code }{ " · " + episode.Title }</span>
+						if episode.Present {
+							<span class="text-emerald-800 dark:text-emerald-300">On SD</span>
+						} else {
+							<span class="font-semibold text-amber-800 dark:text-amber-300">Missing</span>
+						}
+					</li>
+				}
+			</ul>
+		</details>
+		<details class="mt-3 rounded-lg border border-slate-300 p-4 dark:border-white/10" data-section="manual">
+			<summary class="cursor-pointer font-semibold">Fix a filename or copy an episode manually</summary>
+			<p class="mt-3 text-sm">Rename unmatched files on your computer to include the episode number, for example <code>Seinfeld.S01E01.The.Seinfeld.Chronicles.mkv</code>, then reconnect the USB drive and select Rescan.</p>
+			<p class="mt-3 text-sm">Advanced manual copies go in this directory on the Pi’s Linux SD partition:</p>
+			<code class="mt-2 block select-all break-all rounded bg-slate-100 p-3 text-xs dark:bg-zinc-950">{ s.Destination }</code>
+			<p class="mt-2 text-xs">Use SxxExx filenames, keep files readable by the jerry account, and select Rescan after copying. The small bootfs partition visible in Windows is not the media directory.</p>
+		</details>
+	</section>
+}

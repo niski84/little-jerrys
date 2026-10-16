@@ -387,3 +387,29 @@ func containsCaseInsensitive(haystack, needle string) bool {
 	}
 	return false
 }
+
+// A combined source is one playback item, while either catalog entry can
+// resolve it. Blacklisting either part excludes that complete source file.
+func TestCombinedEpisodeResolutionAndBlacklist(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "s03e17e18_the_boyfriend.mkv")
+	if err := os.WriteFile(path, []byte("fixture"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	engine := New(root)
+	if err := engine.Scan(); err != nil {
+		t.Fatal(err)
+	}
+	if got := engine.ResolvePathForEpisode(3, 18); got != path {
+		t.Fatalf("second part resolves to %q", got)
+	}
+	engine.Regenerate()
+	if got := len(engine.Peek(10)); got != 1 {
+		t.Fatalf("combined file appears %d times", got)
+	}
+	engine.SetBlacklist([]string{"S03E18"})
+	engine.Regenerate()
+	if got := len(engine.Peek(10)); got != 0 {
+		t.Fatalf("blacklisted second part still plays %d times", got)
+	}
+}

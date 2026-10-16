@@ -3,9 +3,9 @@ package tmdb
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/niski84/little-jerrys/internal/episodeid"
 	"io/fs"
 	"sort"
-	"strings"
 )
 
 // Cache is a read-only view of pre-fetched TMDB metadata. The runtime
@@ -14,12 +14,13 @@ import (
 // the browse UI degrades to "no metadata loaded" instead of erroring.
 //
 // Layout on disk:
-//   data/tmdb/show.json
-//   data/tmdb/seasons/{NN}/season.json
-//   data/tmdb/seasons/{NN}/episodes/{NN}.jpg     (still image, optional)
+//
+//	data/tmdb/show.json
+//	data/tmdb/seasons/{NN}/season.json
+//	data/tmdb/seasons/{NN}/episodes/{NN}.jpg     (still image, optional)
 type Cache struct {
-	fs    fs.FS
-	root  string
+	fs   fs.FS
+	root string
 }
 
 // NewCache wraps an fs.FS that contains the embedded `data/` subtree.
@@ -139,20 +140,8 @@ func (c *Cache) readJSON(path string, out interface{}) error {
 // filename. Recognizes `sNNeNN_*` and similar. Used to map the queue's
 // .mp4 paths to TMDB metadata for the Now Playing card.
 func SuggestFileMatch(filename string) (season, episode int, ok bool) {
-	name := strings.ToLower(filename)
-	// strip extension
-	if dot := strings.LastIndex(name, "."); dot > 0 {
-		name = name[:dot]
-	}
-	// look for sNNeNN
-	for i := 0; i+5 < len(name); i++ {
-		if name[i] == 's' {
-			var s, e int
-			n, _ := fmt.Sscanf(name[i:], "s%de%d", &s, &e)
-			if n == 2 && s > 0 && e > 0 {
-				return s, e, true
-			}
-		}
+	if ids := episodeid.Parse(filename); len(ids) > 0 {
+		return ids[0].Season, ids[0].Episode, true
 	}
 	return 0, 0, false
 }

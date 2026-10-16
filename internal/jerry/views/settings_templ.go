@@ -9,6 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import "strings"
+import "github.com/niski84/little-jerrys/internal/library"
 
 type SettingsVM struct {
 	LoopGuardThreshold int
@@ -18,6 +19,7 @@ type SettingsVM struct {
 	QuietEnd           string
 	Locked             bool
 	SavedMessage       string
+	Library            *library.Status
 }
 
 func Settings(vm SettingsVM) templ.Component {
@@ -70,53 +72,57 @@ func settingsBody(vm SettingsVM) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"grid grid-cols-1 gap-6\"><section class=\"rounded-2xl border border-white/10 bg-zinc-900/50 p-8\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-400\">Settings</p><h1 class=\"mt-2 text-2xl font-bold\">Knobs</h1>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"grid grid-cols-1 gap-6\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vm.Library != nil {
+			templ_7745c5c3_Err = LibraryStatus(*vm.Library).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <script>\n\t\t\t\t(function () {\n\t\t\t\t\tvar pending = false;\n\t\t\t\t\tsetInterval(async function () {\n\t\t\t\t\t\tif (pending || document.hidden) return;\n\t\t\t\t\t\tpending = true;\n\t\t\t\t\t\ttry {\n\t\t\t\t\t\t\tvar response = await fetch('/settings/library', {cache: 'no-store', credentials: 'same-origin'});\n\t\t\t\t\t\t\tif (!response.ok || response.redirected) throw new Error('Status unavailable');\n\t\t\t\t\t\t\tvar old = document.getElementById('library-status');\n\t\t\t\t\t\t\tif (old) {\n\t\t\t\t\t\t\t\tvar opened = Array.from(old.querySelectorAll('details[open]')).map(function (el) {return el.dataset.section;});\n\t\t\t\t\t\t\t\told.outerHTML = await response.text();\n\t\t\t\t\t\t\t\topened.forEach(function (key) {var el = document.querySelector('#library-status details[data-section=\"' + key + '\"]'); if (el) el.open = true;});\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t} catch (error) {\n\t\t\t\t\t\t\tvar notice = document.getElementById('library-connection');\n\t\t\t\t\t\t\tif (notice) notice.textContent = 'Live status could not refresh. Check the Pi connection, then reload this page.';\n\t\t\t\t\t\t} finally {pending = false;}\n\t\t\t\t\t}, 3000);\n\t\t\t\t})();\n\t\t\t</script>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<section class=\"rounded-2xl border border-white/10 bg-zinc-900/50 p-8\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-400\">Settings</p><h1 class=\"mt-2 text-2xl font-bold\">Knobs</h1>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.SavedMessage != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"mt-4 rounded-lg border border-emerald-500/40 bg-emerald-950/30 px-4 py-2 text-sm text-emerald-200\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"mt-4 rounded-lg border border-emerald-500/40 bg-emerald-950/30 px-4 py-2 text-sm text-emerald-200\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(vm.SavedMessage)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 26, Col: 132}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 53, Col: 132}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<form method=\"POST\" action=\"/settings/save\" class=\"mt-6 space-y-6\" data-testid=\"settings-form\"><p class=\"text-xs text-zinc-500\">Commercial scheduling moved to its own <a href=\"/commercials\" class=\"text-amber-400 hover:underline\">Commercials</a> page — like a real broadcast programmer.</p><div><label class=\"block text-xs uppercase tracking-wide text-zinc-400\">Loop guard threshold</label><p class=\"text-xs text-zinc-500\">Warn if any episode plays more than this many times in 24h. The original DVD-loop problem.</p><input type=\"number\" min=\"1\" max=\"20\" name=\"loop_threshold\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<form method=\"POST\" action=\"/settings/save\" class=\"mt-6 space-y-6\" data-testid=\"settings-form\"><p class=\"text-xs text-zinc-500\">Commercial scheduling moved to its own <a href=\"/commercials\" class=\"text-amber-400 hover:underline\">Commercials</a> page — like a real broadcast programmer.</p><div><label class=\"block text-xs uppercase tracking-wide text-zinc-400\">Loop guard threshold</label><p class=\"text-xs text-zinc-500\">Warn if any episode plays more than this many times in 24h. The original DVD-loop problem.</p><input type=\"number\" min=\"1\" max=\"20\" name=\"loop_threshold\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(intStr(vm.LoopGuardThreshold))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 38, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 65, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if vm.Locked {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " disabled")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " data-testid=\"loop-threshold\" class=\"mt-2 w-32 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-sm\"></div><div><label class=\"block text-xs uppercase tracking-wide text-zinc-400\">Outbound webhooks</label><p class=\"text-xs text-zinc-500\">One URL per line. Fired on play / pause / skip / button-press events.</p><textarea name=\"webhook_outbound\" rows=\"4\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -126,82 +132,82 @@ func settingsBody(vm SettingsVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " data-testid=\"webhook-outbound\" class=\"mt-2 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-xs\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " data-testid=\"loop-threshold\" class=\"mt-2 w-32 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-sm\"></div><div><label class=\"block text-xs uppercase tracking-wide text-zinc-400\">Outbound webhooks</label><p class=\"text-xs text-zinc-500\">One URL per line. Fired on play / pause / skip / button-press events.</p><textarea name=\"webhook_outbound\" rows=\"4\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vm.Locked {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, " disabled")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, " data-testid=\"webhook-outbound\" class=\"mt-2 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-xs\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(strings.Join(vm.WebhookOutbound, "\n"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 54, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 81, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</textarea></div><div class=\"rounded-lg border border-white/10 bg-zinc-950/40 p-4\"><label class=\"flex items-center gap-3\"><input type=\"checkbox\" name=\"quiet_mode_enabled\" value=\"1\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</textarea></div><div class=\"rounded-lg border border-white/10 bg-zinc-950/40 p-4\"><label class=\"flex items-center gap-3\"><input type=\"checkbox\" name=\"quiet_mode_enabled\" value=\"1\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.QuietModeEnabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, " checked")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, " checked")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if vm.Locked {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, " disabled")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " disabled")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, " class=\"h-4 w-4\" data-testid=\"quiet-mode-enabled\"> <span class=\"font-semibold\">Quiet mode</span></label><p class=\"mt-1 text-xs text-zinc-500\">Mute HDMI audio during these local hours; video playback continues.</p><div class=\"mt-3 grid grid-cols-2 gap-3\"><label><span class=\"block text-xs uppercase tracking-wide text-zinc-400\">Mute from</span><input type=\"time\" name=\"quiet_start\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, " class=\"h-4 w-4\" data-testid=\"quiet-mode-enabled\"> <span class=\"font-semibold\">Quiet mode</span></label><p class=\"mt-1 text-xs text-zinc-500\">Mute HDMI audio during these local hours; video playback continues.</p><div class=\"mt-3 grid grid-cols-2 gap-3\"><label><span class=\"block text-xs uppercase tracking-wide text-zinc-400\">Mute from</span><input type=\"time\" name=\"quiet_start\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.QuietStart)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 64, Col: 154}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 91, Col: 154}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if vm.Locked {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, " disabled")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, " disabled")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " class=\"mt-1 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-sm\"></label> <label><span class=\"block text-xs uppercase tracking-wide text-zinc-400\">Unmute at</span><input type=\"time\" name=\"quiet_end\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " class=\"mt-1 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-sm\"></label> <label><span class=\"block text-xs uppercase tracking-wide text-zinc-400\">Unmute at</span><input type=\"time\" name=\"quiet_end\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.QuietEnd)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 65, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `settings.templ`, Line: 92, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if vm.Locked {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " disabled")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, " class=\"mt-1 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-sm\"></label></div></div><button class=\"btn btn-primary\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -211,7 +217,17 @@ func settingsBody(vm SettingsVM) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, " data-testid=\"save-settings\">Save settings</button></form></section><section class=\"rounded-2xl border border-white/10 bg-zinc-900/50 p-8\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-400\">Account</p><form method=\"POST\" action=\"/logout\" class=\"mt-4\"><button class=\"btn btn-ghost\">Sign out</button></form><form method=\"POST\" action=\"/change-password-form\" class=\"mt-2\"><a href=\"/change-password\" class=\"btn btn-ghost\">Change password</a></form></section></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, " class=\"mt-1 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 font-mono text-sm\"></label></div></div><button class=\"btn btn-primary\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if vm.Locked {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, " disabled")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, " data-testid=\"save-settings\">Save settings</button></form></section><section class=\"rounded-2xl border border-white/10 bg-zinc-900/50 p-8\"><p class=\"font-mono text-xs uppercase tracking-[0.2em] text-amber-400\">Account</p><form method=\"POST\" action=\"/logout\" class=\"mt-4\"><button class=\"btn btn-ghost\">Sign out</button></form><form method=\"POST\" action=\"/change-password-form\" class=\"mt-2\"><a href=\"/change-password\" class=\"btn btn-ghost\">Change password</a></form></section></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

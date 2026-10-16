@@ -16,6 +16,7 @@ import (
 	"github.com/niski84/little-jerrys/internal/eventlog"
 	"github.com/niski84/little-jerrys/internal/gpio"
 	"github.com/niski84/little-jerrys/internal/jerry/views"
+	"github.com/niski84/little-jerrys/internal/library"
 	"github.com/niski84/little-jerrys/internal/mediaroot"
 	"github.com/niski84/little-jerrys/internal/network"
 	"github.com/niski84/little-jerrys/internal/player"
@@ -55,6 +56,7 @@ type App struct {
 	Webhook     *webhook.Sender
 	Network     *network.Manager
 	TMDB        *tmdb.Cache
+	Library     *library.Importer
 	Events      *eventlog.Log
 	waitingPath string
 	cancel      context.CancelFunc
@@ -131,6 +133,11 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	// and playback) agrees on the same drive. The watcher below re-scans this
 	// path after hot-plug; JERRY_MEDIA_ROOT remains the manual override.
 	cfg.MediaRoot = mediaroot.Resolve(cfg.MediaRoot)
+	if cfg.ImportRoot != "" {
+		if err := os.MkdirAll(cfg.MediaRoot, 0755); err != nil {
+			return nil, fmt.Errorf("create SD library: %w", err)
+		}
+	}
 	// USB-side operator config (jerry.conf) is the lowest-friction way to
 	// rebrand a unit without touching the admin UI — read it once at boot
 	// and apply the overrides where they're consumed (nav logo, AP SSID).
@@ -262,6 +269,17 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 	// TMDB cache is read-only — populated at build time by --prefetch-tmdb.
 	// Empty cache (no prefetch yet) is fine; the browse UI degrades.
 	tmdbCache := tmdb.NewCache(tmdb.EmbeddedFS)
+	var importer *library.Importer
+	if cfg.ImportRoot != "" {
+		catalog, err := library.NewCatalog(tmdbCache)
+		if err != nil {
+			return nil, fmt.Errorf("USB import catalog: %w", err)
+		}
+		importer, err = library.New(catalog, cfg.ImportRoot, cfg.MediaRoot, filepath.Join(filepath.Dir(cfg.StatePath), "import-status.json"), func(message string) { events.Info("import", message) })
+		if err != nil {
+			return nil, fmt.Errorf("USB import: %w", err)
+		}
+	}
 
 	app := &App{
 		Cfg:         cfg,
@@ -273,10 +291,15 @@ func NewApp(ctx context.Context, cfg Config) (*App, error) {
 		Webhook:     wh,
 		Network:     netMgr,
 		TMDB:        tmdbCache,
+		Library:     importer,
 		Events:      events,
 		mode:        Mode(-1),
 		waitingPath: waitingPath,
 		cancel:      cancel,
+	}
+	if importer != nil {
+		app.workerWG.Add(1)
+		go func() { defer app.workerWG.Done(); importer.Run(ctx) }()
 	}
 	if uc.CaptivePortal && netMgr.Available() {
 		app.workerWG.Add(1)

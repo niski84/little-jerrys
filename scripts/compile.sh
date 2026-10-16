@@ -9,12 +9,13 @@ cd "$PROJECT_DIR"
 export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 
 echo "→ templ generate…"
-go run github.com/a-h/templ/cmd/templ@latest generate -path ./internal/jerry/views
+TEMPL_VERSION=$(go list -m -f '{{.Version}}' github.com/a-h/templ)
+go run "github.com/a-h/templ/cmd/templ@${TEMPL_VERSION}" generate -path ./internal/jerry/views
 
 if [ -f package.json ]; then
   if [ ! -d node_modules ]; then
-    echo "→ npm install…"
-    npm install --silent --no-audit --no-fund
+    echo "→ npm ci…"
+    npm ci --silent --no-audit --no-fund
   fi
   echo "→ Tailwind (static CSS)…"
   npm run --silent build:css

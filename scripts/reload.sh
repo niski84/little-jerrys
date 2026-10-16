@@ -10,6 +10,7 @@ PORT="${PORT:-8089}"
 # runs cleanly on a non-Pi laptop. Override on the deployed Pi via systemd.
 export JERRY_PLAYER_STUB="${JERRY_PLAYER_STUB:-1}"
 export JERRY_GPIO_SIMULATED="${JERRY_GPIO_SIMULATED:-1}"
+export JERRY_AUTO_UPDATE="${JERRY_AUTO_UPDATE:-false}"
 export JERRY_MEDIA_ROOT="${JERRY_MEDIA_ROOT:-/tmp/jerry-media}"
 export JERRY_STATE_PATH="${JERRY_STATE_PATH:-/tmp/jerry-state.json}"
 # Rescue password — always works for the admin user. Lets you recover from a

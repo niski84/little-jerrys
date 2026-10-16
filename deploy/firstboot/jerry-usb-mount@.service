@@ -1,0 +1,8 @@
+[Unit]
+Description=Mount Little Jerry's import source from /dev/%I
+After=jerry-firstboot.service
+Requires=jerry-firstboot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/jerry-usb-mount /dev/%I

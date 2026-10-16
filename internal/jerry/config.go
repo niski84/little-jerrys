@@ -10,6 +10,7 @@ type Config struct {
 	Version          string // build release label; revision comes from Go build metadata
 	Port             string // 8089
 	MediaRoot        string // USB mount, e.g. /media/usb
+	ImportRoot       string // optional read-only USB source; empty disables automatic SD imports
 	StatePath        string // JSON state on USB, e.g. /media/usb/.jerry/state.json
 	MpvSocket        string // /tmp/mpv-jerry.sock
 	MpvAO            string // audio output driver, e.g. "null" in containers
@@ -30,6 +31,7 @@ func LoadConfig() Config {
 	c := Config{
 		Port:             env("PORT", "8089"),
 		MediaRoot:        env("JERRY_MEDIA_ROOT", "/media/usb"),
+		ImportRoot:       os.Getenv("JERRY_IMPORT_ROOT"),
 		StatePath:        env("JERRY_STATE_PATH", "/media/usb/.jerry/state.json"),
 		MpvSocket:        env("JERRY_MPV_SOCKET", "/tmp/mpv-jerry.sock"),
 		MpvAO:            env("JERRY_MPV_AO", ""),

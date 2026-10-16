@@ -87,3 +87,18 @@ app deployment as approval to enable unattended deployments or change fleet gate
 
 Historical protocol IDs such as `channel-eleven-session` remain compatibility
 identifiers; they do not represent a second product.
+
+## Fresh-image distribution work — 2026-10-16
+
+Nick requested a downloadable Pi 4 image for Brian: flash, insert a USB of
+Seinfeld episodes, automatically copy onto SD, and check completeness/failures
+in Settings. See `BURN-PI.md` and `docs/PI-RELEASE.md`. This is a new-card release
+workflow. It does not authorize changing the existing restaurant Pi, installing
+the maintainer executor there, or bypassing its recorded acceptance gates.
+
+The release uses `/opt/jerry/media` on SD, `/media/usb` as a read-only import source,
+and explicit `JERRY_IMPORT_ROOT`. Existing deployments without that variable keep
+their current media behavior. Filename identities are now shared across import,
+TMDB lookup, episode browsing and playlist controls, including combined parts.
+Physical Pi 4 boot/USB/HDMI acceptance must be reported separately from local
+importer/browser tests and offline image inspection.

@@ -437,8 +437,31 @@ func NewServer(app *App) http.Handler {
 			QuietEnd:           st.QuietEnd,
 			Locked:             app.Auth.MustChange(),
 		}
+		if app.Library != nil {
+			status := app.Library.Snapshot()
+			vm.Library = &status
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = views.Settings(vm).Render(r.Context(), w)
+	})
+	authed.HandleFunc("GET /settings/library", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if app.Library == nil {
+			http.Error(w, "Automatic USB import is not configured", http.StatusNotFound)
+			return
+		}
+		if err := views.LibraryStatus(app.Library.Snapshot()).Render(r.Context(), w); err != nil {
+			app.Events.Warnf("import", "render library status: %v", err)
+		}
+	})
+	authed.HandleFunc("GET /api/library/status", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		if app.Library == nil {
+			respondJSON(w, http.StatusNotFound, map[string]string{"error": "Automatic USB import is not configured"})
+			return
+		}
+		respondJSON(w, http.StatusOK, app.Library.Snapshot())
 	})
 
 	// Renders the Wi-Fi page showing nearby networks and AP-mode status.
@@ -472,6 +495,14 @@ func NewServer(app *App) http.Handler {
 		_ = views.Soundboard(vm).Render(r.Context(), w)
 	})
 	playback := http.NewServeMux()
+	playback.HandleFunc("POST /settings/library/rescan", func(w http.ResponseWriter, r *http.Request) {
+		if app.Library == nil {
+			http.Error(w, "Automatic USB import is not configured", http.StatusNotFound)
+			return
+		}
+		app.Library.Retry()
+		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	})
 	// Upload a soundboard clip directly from the admin UI. The route is under
 	// the same authenticated/first-password gate as all mutations.
 	playback.HandleFunc("POST /soundboard/upload", func(w http.ResponseWriter, r *http.Request) {

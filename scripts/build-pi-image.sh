@@ -1,230 +1,270 @@
 #!/usr/bin/env bash
-# Bake the Little Jerry's into a Raspberry Pi OS Lite (64-bit)
-# image, producing a flashable .img Brian can write to an SD card.
-#
-# Inputs:
-#   $1  Path to a Raspberry Pi OS Lite arm64 .img (uncompressed). Download
-#       from https://www.raspberrypi.com/software/operating-systems/.
-#       Default: ./build/pi-os-lite-arm64.img
-#
-# Output:
-#   ./build/little-jerrys-YYYYMMDD.img
-#
-# What it does (all done via loopback mount, no chroot needed):
-#   1. Cross-compile the arm64 binary if it's not already built
-#   2. Copy the raw input image to the output path
-#   3. Set up loopback devices for the boot + root partitions
-#   4. Mount root, copy:
-#        /opt/jerry/jerry                    (the binary)
-#        /opt/jerry/firstboot.sh
-#        /etc/systemd/system/jerry.service
-#        /etc/systemd/system/jerry-firstboot.service
-#        /etc/NetworkManager/system-connections/jerry-ap.nmconnection
-#        /etc/udev/rules.d/99-jerry-usb.rules
-#        /etc/mpv/mpv.conf
-#      and `systemctl enable jerry jerry-firstboot` via symlink.
-#   5. Mount boot, drop a `userconf.txt` so SSH can be enabled if the
-#      operator drops `ssh` into the boot partition.
-#   6. Unmount cleanly + detach loop device.
-#
-# Requires sudo for losetup + mount. Doesn't need qemu-user-static.
-
-set -euo pipefail
-
+# Build a clean, media-free Raspberry Pi OS image for a downloadable release.
+# Usage: scripts/build-pi-image.sh BASE_ARM64.img [OUTPUT.img]
+set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
-INPUT_IMG="${1:-build/pi-os-lite-arm64.img}"
-DATE_STAMP="$(date +%Y%m%d)"
-OUTPUT_IMG="build/little-jerrys-${DATE_STAMP}.img"
-BINARY="build/jerry-arm64"
-# Optional: drop .mp4/.mkv files into build/media/ (episodes) and
-# build/media/commercials/ (ads) before running this script. They will be
-# baked into the image at /opt/jerry/media — no USB drive required on the Pi.
-MEDIA_SRC="build/media"
-
-err() { printf 'error: %s\n' "$*" >&2; exit 1; }
+err() { echo "error: $*" >&2; exit 1; }
 log() { printf '\n=== %s ===\n' "$*"; }
+[[ $EUID -ne 0 ]] || err "run as a normal user; this script uses sudo for image operations"
+[[ $# -ge 1 && $# -le 2 ]] || err "usage: $0 BASE_ARM64.img [OUTPUT.img]"
+BASE_IMG=$(realpath "$1")
+[[ -f "$BASE_IMG" ]] || err "base image not found: $BASE_IMG"
+OUTPUT_IMG=${2:-"$PROJECT_DIR/build/little-jerrys.img"}
+[[ "$OUTPUT_IMG" = /* ]] || OUTPUT_IMG="$PROJECT_DIR/$OUTPUT_IMG"
+OUTPUT_IMG=$(realpath -m "$OUTPUT_IMG")
+[[ ! -e "$OUTPUT_IMG" ]] || err "refusing to overwrite output: $OUTPUT_IMG"
+[[ "$OUTPUT_IMG" != "$BASE_IMG" ]] || err "output cannot be the base image"
 
-# --- Preflight ---
-[[ "$(id -u)" -ne 0 ]] || err "don't run this whole script as root; it will sudo where needed"
-command -v losetup >/dev/null   || err "losetup missing (install util-linux)"
-command -v partprobe >/dev/null || err "partprobe missing (install parted)"
+MEDIA_MODE=${MEDIA_MODE:-sd}
+[[ "$MEDIA_MODE" == sd ]] || err "MEDIA_MODE=usb is incompatible with the read-only USB import source; use sd"
+ROOT_HEADROOM_MIB=${ROOT_HEADROOM_MIB:-2048}
+[[ "$ROOT_HEADROOM_MIB" =~ ^[0-9]+$ ]] || err "ROOT_HEADROOM_MIB must be an integer"
+(( ROOT_HEADROOM_MIB >= 1024 && ROOT_HEADROOM_MIB <= 4096 )) || err "ROOT_HEADROOM_MIB must be 1024..4096 MiB"
 
-if [[ ! -f "$INPUT_IMG" ]]; then
-  log "Pi OS Lite not found — downloading (≈500 MB, one-time)"
-  mkdir -p build
-  # Stable redirect URL from the Pi Foundation. Always resolves to latest Bookworm Lite arm64.
-  PI_OS_URL="https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz"
-  XZ_PATH="build/pi-os-lite-arm64.img.xz"
-  curl -L --progress-bar -o "$XZ_PATH" "$PI_OS_URL"
-  log "decompressing Pi OS image (this takes ~1 min)"
-  xz -d "$XZ_PATH"
-  mv "build/2024-11-19-raspios-bookworm-arm64-lite.img" "$INPUT_IMG" 2>/dev/null || \
-    mv build/*.img "$INPUT_IMG"
-  log "Pi OS Lite ready at $INPUT_IMG"
-fi
-command -v xz >/dev/null || err "xz missing — install xz-utils (apt install xz-utils)"
-[[ -f "$INPUT_IMG" ]] || err "base image still missing after download attempt: $INPUT_IMG"
+for bin in losetup partprobe parted mount umount e2fsck resize2fs chroot xz sha256sum; do
+  command -v "$bin" >/dev/null || err "missing required command: $bin"
+done
+QEMU=${QEMU_AARCH64_STATIC:-$(command -v qemu-aarch64-static || command -v qemu-aarch64 || true)}
+[[ -n "$QEMU" && -x "$QEMU" ]] || err "install qemu-user-static or set QEMU_AARCH64_STATIC"
+[[ -x build/jerry-arm64 ]] || err "missing rebuilt build/jerry-arm64; run scripts/cross-compile-pi.sh first"
+[[ -f deploy/firstboot/jerry-usb-mount.sh ]] || err "USB mount helper missing"
+command -v sfdisk >/dev/null || err "missing sfdisk (util-linux)"
+GO_BIN=${GO:-$(command -v go || true)}
+[[ -x "$GO_BIN" ]] || GO_BIN=/usr/local/go/bin/go
+[[ -x "$GO_BIN" ]] || err "go is required to validate the ARM64 binary metadata"
+CURRENT_COMMIT=$(git rev-parse HEAD)
+[[ -z "$(git status --porcelain)" ]] || err "release image requires a clean source tree"
+BUILD_INFO=$("$GO_BIN" version -m build/jerry-arm64) || err "cannot read build metadata from build/jerry-arm64"
+BUILD_PATH=$(awk '$1 == "path" { print $2; exit }' <<<"$BUILD_INFO")
+BUILD_ARCH=$(awk '$1 == "build" && $2 ~ /^GOARCH=/ { sub(/^GOARCH=/, "", $2); print $2; exit }' <<<"$BUILD_INFO")
+BUILD_OS=$(awk '$1 == "build" && $2 ~ /^GOOS=/ { sub(/^GOOS=/, "", $2); print $2; exit }' <<<"$BUILD_INFO")
+BUILD_TAGS=$(awk '$1 == "build" && $2 ~ /^-tags=/ { sub(/^-tags=/, "", $2); print $2; exit }' <<<"$BUILD_INFO")
+BUILD_REVISION=$(awk '$1 == "build" && $2 ~ /^vcs.revision=/ { sub(/^vcs.revision=/, "", $2); print $2; exit }' <<<"$BUILD_INFO")
+BUILD_MODIFIED=$(awk '$1 == "build" && $2 ~ /^vcs.modified=/ { sub(/^vcs.modified=/, "", $2); print $2; exit }' <<<"$BUILD_INFO")
+[[ "$BUILD_PATH" == github.com/niski84/little-jerrys/cmd/little-jerrys ]] || err "binary was built from unexpected package path: ${BUILD_PATH:-missing}"
+[[ "$BUILD_ARCH" == arm64 && "$BUILD_OS" == linux ]] || err "binary must be a linux/arm64 build (found ${BUILD_OS:-missing}/${BUILD_ARCH:-missing})"
+[[ ",$BUILD_TAGS," == *,pi,* ]] || err "binary must include the pi build tag (found ${BUILD_TAGS:-missing})"
+[[ "$BUILD_REVISION" == "$CURRENT_COMMIT" && "$BUILD_MODIFIED" == false ]] || \
+  err "binary must be a clean build of current HEAD $CURRENT_COMMIT (found revision=${BUILD_REVISION:-missing}, modified=${BUILD_MODIFIED:-missing})"
 
-# --- 1. Cross-compile if needed ---
-if [[ ! -x "$BINARY" ]]; then
-  log "cross-compiling Pi binary"
-  "$SCRIPT_DIR/cross-compile-pi.sh"
-fi
-[[ -x "$BINARY" ]] || err "binary missing after cross-compile: $BINARY"
+chroot_clean() {
+  sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot "$MNT_ROOT" "$@"
+}
 
-# --- 1b. Measure media files if provided ---
-MEDIA_BYTES=0
-BAKE_MEDIA=false
-if [[ -d "$MEDIA_SRC" ]]; then
-  shopt -s nullglob
-  mapfile -t MEDIA_FILES < <(find "$MEDIA_SRC" -type f \( \
-    -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.mov" \
-    -o -iname "*.avi" -o -iname "*.m4v" -o -iname "*.webm" \
-  \))
-  shopt -u nullglob
-  if [[ ${#MEDIA_FILES[@]} -gt 0 ]]; then
-    BAKE_MEDIA=true
-    MEDIA_BYTES=$(du -sb "$MEDIA_SRC" | awk '{print $1}')
-    MEDIA_MB=$(( (MEDIA_BYTES / 1024 / 1024) + 256 ))  # +256 MB headroom
-    log "found ${#MEDIA_FILES[@]} media file(s) in $MEDIA_SRC ($(( MEDIA_BYTES / 1024 / 1024 )) MB) — baking into image"
+mkdir -p "$(dirname "$OUTPUT_IMG")"
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/jerry-image.XXXXXX")
+LOOP=
+MNT_BOOT="$WORK/boot"
+MNT_ROOT="$WORK/root"
+mkdir "$MNT_BOOT" "$MNT_ROOT"
+RESOLV_BACKUP=
+POLICY_BACKUP=
+RESOLV_CHANGED=0
+POLICY_CHANGED=0
+POLICY_WAS_ABSENT=0
+cleanup_failed=0
+cleanup_log() { printf 'cleanup: %s\n' "$*" >&2; }
+restore_chroot_overrides() {
+  [[ -n "$MNT_ROOT" ]] && mountpoint -q "$MNT_ROOT" || return 0
+  if (( RESOLV_CHANGED )); then
+    if sudo rm -f "$MNT_ROOT/etc/resolv.conf" && sudo cp -a "$RESOLV_BACKUP" "$MNT_ROOT/etc/resolv.conf"; then
+      RESOLV_CHANGED=0
+    else
+      cleanup_log "failed to restore target /etc/resolv.conf"
+      cleanup_failed=1
+    fi
   fi
-fi
-
-# --- 2. Copy base image and expand if baking media ---
-log "copying base image → $OUTPUT_IMG"
-cp --reflink=auto "$INPUT_IMG" "$OUTPUT_IMG"
-
-if $BAKE_MEDIA; then
-  log "expanding image by ${MEDIA_MB} MB to fit media"
-  truncate -s "+${MEDIA_MB}M" "$OUTPUT_IMG"
-  # Expand the root (ext4) partition to fill the new space.
-  # We use a temp loopback just for the resize before the main mount.
-  LOOP_RESIZE="$(sudo losetup --show -fP "$OUTPUT_IMG")"
-  sudo partprobe "$LOOP_RESIZE"
-  sudo e2fsck -f -y "${LOOP_RESIZE}p2" || true
-  sudo resize2fs "${LOOP_RESIZE}p2"
-  sudo losetup -d "$LOOP_RESIZE"
-fi
-
-# --- 3. Loopback mount ---
-log "loop-mounting partitions"
-LOOP="$(sudo losetup --show -fP "$OUTPUT_IMG")"
-sudo partprobe "$LOOP"
-
-# Pi OS images have two partitions: 1 = vfat /boot, 2 = ext4 /
-BOOT_PART="${LOOP}p1"
-ROOT_PART="${LOOP}p2"
-
-MNT_BOOT="$(mktemp -d)"
-MNT_ROOT="$(mktemp -d)"
-
+  if (( POLICY_CHANGED )); then
+    if (( POLICY_WAS_ABSENT )); then
+      if sudo rm -f "$MNT_ROOT/usr/sbin/policy-rc.d"; then
+        POLICY_CHANGED=0
+      else
+        cleanup_log "failed to remove temporary policy-rc.d"
+        cleanup_failed=1
+      fi
+    elif sudo rm -f "$MNT_ROOT/usr/sbin/policy-rc.d" && sudo cp -a "$POLICY_BACKUP" "$MNT_ROOT/usr/sbin/policy-rc.d"; then
+      POLICY_CHANGED=0
+    else
+      cleanup_log "failed to restore target policy-rc.d"
+      cleanup_failed=1
+    fi
+  fi
+}
 cleanup() {
-  log "cleanup"
-  sudo umount "$MNT_BOOT" 2>/dev/null || true
-  sudo umount "$MNT_ROOT" 2>/dev/null || true
-  [[ -n "${LOOP:-}" ]] && sudo losetup -d "$LOOP" 2>/dev/null || true
-  rmdir "$MNT_BOOT" "$MNT_ROOT" 2>/dev/null || true
+  local rc=$?
+  trap - EXIT INT TERM
+  set +e
+  restore_chroot_overrides
+  local child_mounts=("$MNT_ROOT/dev/pts" "$MNT_ROOT/dev" "$MNT_ROOT/proc")
+  for target in "$MNT_BOOT" "${child_mounts[@]}"; do
+    if mountpoint -q "$target" && ! sudo umount "$target"; then
+      cleanup_log "could not unmount $target"
+      cleanup_failed=1
+    fi
+  done
+  local child_survives=0
+  for target in "${child_mounts[@]}"; do
+    if mountpoint -q "$target"; then
+      cleanup_log "mount remains at $target; retaining work directory and loop device"
+      child_survives=1
+    fi
+  done
+  if (( child_survives == 0 )) && mountpoint -q "$MNT_ROOT" && ! sudo umount "$MNT_ROOT"; then
+    cleanup_log "could not unmount $MNT_ROOT"
+    cleanup_failed=1
+  fi
+  local mounts_survive=0
+  for target in "$MNT_BOOT" "${child_mounts[@]}" "$MNT_ROOT"; do
+    if mountpoint -q "$target"; then mounts_survive=1; fi
+  done
+  if (( mounts_survive == 0 )) && [[ -n "$LOOP" ]]; then
+    if ! sudo losetup -d "$LOOP"; then
+      cleanup_log "could not detach $LOOP; retaining work directory and image"
+      cleanup_failed=1
+    else
+      LOOP=
+    fi
+  fi
+  if (( mounts_survive != 0 )); then cleanup_failed=1; fi
+  if (( cleanup_failed != 0 )); then
+    cleanup_log "incomplete cleanup; retaining $WORK and $OUTPUT_IMG for recovery"
+    (( rc != 0 )) || rc=1
+    exit "$rc"
+  fi
+  rm -rf "$WORK"
+  if (( rc != 0 )); then sudo rm -f "$OUTPUT_IMG"; fi
+  exit "$rc"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
+# Copy sparsely when possible. All rollback handlers are installed before the
+# first loop allocation or filesystem modification.
+log "copying explicit base image"
+cp --reflink=auto --sparse=always "$BASE_IMG" "$OUTPUT_IMG"
+truncate -s "+${ROOT_HEADROOM_MIB}M" "$OUTPUT_IMG"
+LOOP=$(sudo losetup --show --find --partscan "$OUTPUT_IMG")
+sudo partprobe "$LOOP"
+ROOT_PART="${LOOP}p2"
+BOOT_PART="${LOOP}p1"
+[[ -b "$ROOT_PART" && -b "$BOOT_PART" ]] || err "expected Pi OS partitions p1 (boot) and p2 (root)"
+
+log "growing root partition for offline runtime package installation"
+sudo parted -s "$LOOP" resizepart 2 100%
+sudo partprobe "$LOOP"
+set +e
+sudo e2fsck -f -p "$ROOT_PART"
+FSCK_RC=$?
+set -e
+case "$FSCK_RC" in
+  0|1) ;;
+  2|3) log "e2fsck repaired root filesystem (status $FSCK_RC)" ;;
+  *) err "e2fsck failed with status $FSCK_RC" ;;
+esac
+sudo resize2fs "$ROOT_PART"
 sudo mount "$ROOT_PART" "$MNT_ROOT"
 sudo mount "$BOOT_PART" "$MNT_BOOT"
 
-# --- 4. Inject everything into root partition ---
-log "injecting binary + service files"
+log "preparing chroot and offline image configuration"
+sudo install -m 0755 "$QEMU" "$MNT_ROOT/usr/bin/qemu-aarch64-static"
+# Supply DNS only during package installation and restore the original target
+# resolver object exactly on success and on cleanup after failure.
+RESOLV_BACKUP="$WORK/resolv.conf"
+sudo cp -a "$MNT_ROOT/etc/resolv.conf" "$RESOLV_BACKUP"
+sudo cp /etc/resolv.conf "$WORK/resolv.host"
+RESOLV_CHANGED=1
+sudo rm -f "$MNT_ROOT/etc/resolv.conf"
+sudo cp "$WORK/resolv.host" "$MNT_ROOT/etc/resolv.conf"
+POLICY="$MNT_ROOT/usr/sbin/policy-rc.d"
+POLICY_BACKUP="$WORK/policy-rc.d"
+if sudo test -e "$POLICY" || sudo test -L "$POLICY"; then sudo cp -a "$POLICY" "$POLICY_BACKUP"; else POLICY_WAS_ABSENT=1; fi
+POLICY_CHANGED=1
+printf '#!/bin/sh\nexit 101\n' | sudo tee "$POLICY" >/dev/null
+sudo chmod 0755 "$POLICY"
+sudo mount --bind /dev "$MNT_ROOT/dev"
+sudo mount --make-private "$MNT_ROOT/dev"
+sudo mount --bind /proc "$MNT_ROOT/proc"
+sudo mount --make-private "$MNT_ROOT/proc"
+sudo mount --bind /dev/pts "$MNT_ROOT/dev/pts"
+sudo mount --make-private "$MNT_ROOT/dev/pts"
 
-sudo install -d -m 0755 "$MNT_ROOT/opt/jerry"
-sudo install -m 0755 "$BINARY" "$MNT_ROOT/opt/jerry/jerry"
+log "installing offline playback runtime"
+chroot_clean /usr/bin/apt-get update
+chroot_clean /usr/bin/env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y --no-install-recommends mpv ffmpeg exfatprogs ntfs-3g cloud-guest-utils
+chroot_clean /usr/bin/apt-get clean
+sudo rm -rf "$MNT_ROOT/var/lib/apt/lists"/*
+
+restore_chroot_overrides
+(( cleanup_failed == 0 )) || err "failed to restore temporary chroot configuration"
+sudo rm -f "$MNT_ROOT/usr/bin/qemu-aarch64-static"
+
+log "installing app and service configuration"
+sudo rm -rf "$MNT_ROOT/var/lib/jerry" "$MNT_ROOT/opt/jerry/media" "$MNT_ROOT/media/usb"
+sudo install -d -m 0755 "$MNT_ROOT/opt/jerry" "$MNT_ROOT/opt/jerry/media" "$MNT_ROOT/var/lib/jerry" "$MNT_ROOT/media/usb"
+sudo install -m 0755 build/jerry-arm64 "$MNT_ROOT/opt/jerry/jerry"
 sudo install -m 0755 deploy/firstboot/firstboot.sh "$MNT_ROOT/opt/jerry/firstboot.sh"
-
-sudo install -m 0644 deploy/systemd/jerry.service \
-  "$MNT_ROOT/etc/systemd/system/jerry.service"
-sudo install -m 0644 deploy/firstboot/jerry-firstboot.service \
-  "$MNT_ROOT/etc/systemd/system/jerry-firstboot.service"
-
-sudo install -d -m 0755 "$MNT_ROOT/etc/NetworkManager/system-connections"
-sudo install -m 0600 deploy/networkmanager/jerry-ap.nmconnection \
-  "$MNT_ROOT/etc/NetworkManager/system-connections/jerry-ap.nmconnection"
-
-sudo install -d -m 0755 "$MNT_ROOT/etc/udev/rules.d"
-sudo install -m 0644 deploy/firstboot/jerry-usb.rules \
-  "$MNT_ROOT/etc/udev/rules.d/99-jerry-usb.rules"
-
-sudo install -d -m 0755 "$MNT_ROOT/etc/mpv"
+sudo install -m 0755 deploy/firstboot/jerry-usb-mount.sh "$MNT_ROOT/usr/local/sbin/jerry-usb-mount"
+sudo install -m 0644 deploy/systemd/jerry.service "$MNT_ROOT/etc/systemd/system/jerry.service"
+sudo install -m 0644 deploy/firstboot/jerry-firstboot.service "$MNT_ROOT/etc/systemd/system/jerry-firstboot.service"
+sudo install -m 0644 'deploy/firstboot/jerry-usb-mount@.service' "$MNT_ROOT/etc/systemd/system/jerry-usb-mount@.service"
+sudo install -d -m 0755 "$MNT_ROOT/etc/udev/rules.d" "$MNT_ROOT/etc/mpv"
+sudo install -m 0644 deploy/firstboot/jerry-usb.rules "$MNT_ROOT/etc/udev/rules.d/99-jerry-usb.rules"
 sudo install -m 0644 deploy/firstboot/mpv.conf "$MNT_ROOT/etc/mpv/mpv.conf"
-
-# OTA update apply script — the jerry user calls this via sudoers.
-sudo install -m 0755 deploy/update-apply.sh "$MNT_ROOT/opt/jerry/update-apply.sh"
-
-# sudoers drop-in: jerry may run update-apply.sh as root without a password.
-# Scoped tightly to that one script — no general sudo access.
-sudo install -d -m 0755 "$MNT_ROOT/etc/sudoers.d"
-printf 'jerry ALL=(root) NOPASSWD: /opt/jerry/update-apply.sh\n' | \
-  sudo tee "$MNT_ROOT/etc/sudoers.d/jerry-update" >/dev/null
-sudo chmod 0440 "$MNT_ROOT/etc/sudoers.d/jerry-update"
-
-# --- 4b. Bake media files into /opt/jerry/media (if provided) ---
-if $BAKE_MEDIA; then
-  log "copying media files into image (this may take a while)"
-  sudo install -d -m 0755 "$MNT_ROOT/opt/jerry/media"
-  # -rL dereferences symlinks so the actual file bytes land in the image,
-  # not dangling symlink pointers pointing to paths that don't exist on the Pi.
-  sudo cp -rL "$MEDIA_SRC/." "$MNT_ROOT/opt/jerry/media/"
-  sudo chown -R root:root "$MNT_ROOT/opt/jerry/media"
-
-  # Validate: at least one video file actually landed in the image.
-  BAKED_COUNT=$(sudo find "$MNT_ROOT/opt/jerry/media" -maxdepth 1 \
-    \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.mov" \
-       -o -iname "*.avi" -o -iname "*.m4v" -o -iname "*.webm" \) | wc -l)
-  if [[ "$BAKED_COUNT" -eq 0 ]]; then
-    err "media copy failed — no video files found in image at /opt/jerry/media.
-  Check that build/media/ contains real .mp4 files (not broken symlinks)."
-  fi
-  log "$BAKED_COUNT video file(s) baked into image"
-
-  # Override the media root in the service — no USB drive needed.
-  sudo sed -i 's|JERRY_MEDIA_ROOT=/media/usb|JERRY_MEDIA_ROOT=/opt/jerry/media|' \
-    "$MNT_ROOT/etc/systemd/system/jerry.service"
-  sudo sed -i 's|ReadWritePaths=.*|ReadWritePaths=/var/lib/jerry /opt/jerry/media /tmp /run|' \
-    "$MNT_ROOT/etc/systemd/system/jerry.service"
-  log "media baked in — Pi will play from SD card, no USB required"
-fi
-
-# --- Enable services via symlink (no systemctl, image is offline) ---
-log "enabling services in multi-user.target.wants"
 sudo install -d -m 0755 "$MNT_ROOT/etc/systemd/system/multi-user.target.wants"
-sudo ln -sf /etc/systemd/system/jerry.service \
-  "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/jerry.service"
-sudo ln -sf /etc/systemd/system/jerry-firstboot.service \
-  "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/jerry-firstboot.service"
+sudo ln -sf /etc/systemd/system/jerry.service "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/jerry.service"
+sudo ln -sf /etc/systemd/system/jerry-firstboot.service "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/jerry-firstboot.service"
+sudo rm -f "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/jerry-maintainer.service"
+sudo rm -f "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/jerry-maintainer-executor.service"
+sudo rm -f "$MNT_ROOT/etc/sudoers.d/010_pi-nopasswd" "$MNT_ROOT/etc/sudoers.d/jerry-update"
+sudo rm -f "$MNT_ROOT/opt/jerry/update-apply.sh"
+sudo rm -f "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/ssh.service" "$MNT_ROOT/etc/systemd/system/sockets.target.wants/ssh.socket"
+sudo rm -f "$MNT_ROOT/etc/ssh/ssh_host_"*
 
-# --- Make sure NetworkManager is the network stack on Pi OS Lite ---
-# Pi OS Lite Bookworm uses NetworkManager by default; older releases
-# defaulted to dhcpcd. Force NM on so jerry-ap.nmconnection is honored.
-if [[ -f "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/dhcpcd.service" ]]; then
-  log "disabling dhcpcd (NetworkManager will own the network)"
-  sudo rm -f "$MNT_ROOT/etc/systemd/system/multi-user.target.wants/dhcpcd.service"
+if ! chroot_clean /usr/bin/getent passwd jerry >/dev/null; then
+  # Some Pi OS images already have the placeholder first user at UID 1000.
+  # userconf.txt renames that account to the locked jerry account at boot.
+  if ! chroot_clean /usr/bin/getent passwd 1000 >/dev/null; then
+    chroot_clean /usr/sbin/useradd --system --uid 1000 --no-create-home --shell /usr/sbin/nologin jerry
+  fi
 fi
+sudo chown -R 1000:1000 "$MNT_ROOT/var/lib/jerry" "$MNT_ROOT/opt/jerry/media" "$MNT_ROOT/media/usb"
+sudo chmod 0755 "$MNT_ROOT/var/lib/jerry" "$MNT_ROOT/opt/jerry/media" "$MNT_ROOT/media/usb"
 
-# --- 5. Boot partition: enable SSH so the appliance can be debugged ---
-log "enabling SSH on boot partition"
-sudo touch "$MNT_BOOT/ssh"
+MEDIA_ROOT=/opt/jerry/media
+sudo sed -i "s|^Environment=JERRY_MEDIA_ROOT=.*|Environment=JERRY_MEDIA_ROOT=$MEDIA_ROOT|" "$MNT_ROOT/etc/systemd/system/jerry.service"
+# Root-owned application work will add/import from this source path.
+sudo grep -q '^Environment=JERRY_IMPORT_ROOT=' "$MNT_ROOT/etc/systemd/system/jerry.service" || \
+  echo 'Environment=JERRY_IMPORT_ROOT=/media/usb' | sudo tee -a "$MNT_ROOT/etc/systemd/system/jerry.service" >/dev/null
+sudo sed -i 's|^ReadWritePaths=.*|ReadWritePaths=/var/lib/jerry /opt/jerry/media /tmp /run|' "$MNT_ROOT/etc/systemd/system/jerry.service"
 
-# Pre-set the default `pi` user with a known password so a network-down
-# Pi can still be SSHed into from a directly-connected laptop. Operator
-# should change this on first login. Generate the hash fresh on each
-# build so we don't ship a stale credential pinned in source control.
-log "generating pi user credentials (user=pi pass=jerry)"
-PI_USER_HASH="$(openssl passwd -6 jerry)"
-echo "pi:${PI_USER_HASH}" | sudo tee "$MNT_BOOT/userconf.txt" >/dev/null
+# Stable product identity, no AP/Wi-Fi config, no inherited machine identity.
+echo little-jerrys | sudo tee "$MNT_ROOT/etc/hostname" >/dev/null
+sudo tee "$MNT_ROOT/etc/hosts" >/dev/null <<'HOSTS'
+127.0.0.1 localhost
+127.0.1.1 little-jerrys
+::1 localhost ip6-localhost ip6-loopback
+HOSTS
+sudo rm -f "$MNT_ROOT"/etc/NetworkManager/system-connections/*
+sudo rm -f "$MNT_ROOT/etc/wpa_supplicant/wpa_supplicant.conf"
+sudo sh -c ": > '$MNT_ROOT/etc/machine-id'"
+sudo rm -f "$MNT_ROOT/var/lib/dbus/machine-id"
+sudo rm -f "$MNT_ROOT/var/lib/systemd/random-seed"
+# userconf-pi creates the first OS account from this file. '*' is a locked
+# password; SSH remains disabled and no shared login credential is shipped.
+printf 'jerry:*\n' | sudo tee "$MNT_BOOT/userconf.txt" >/dev/null
+sudo rm -f "$MNT_BOOT/ssh"
 
-# --- 6. Done. Trap will unmount + detach loop. ---
-log "image ready: $OUTPUT_IMG"
+log "validating runtime and cleaning release identity"
+chroot_clean /usr/bin/mpv --version >/dev/null
+chroot_clean /usr/bin/ffmpeg -version >/dev/null
+sudo find "$MNT_ROOT/var/log" -xdev -type f -exec truncate -s 0 -- {} +
+sudo sync
+log "raw image ready: $OUTPUT_IMG"
 ls -lh "$OUTPUT_IMG"
-echo
-echo "Burn with Raspberry Pi Imager (recommended) or:"
-echo "  sudo dd if=$OUTPUT_IMG of=/dev/sdX bs=4M conv=fsync status=progress"
-echo "  (where /dev/sdX is the SD card — verify with \`lsblk\` first)"
+echo "MEDIA_MODE=$MEDIA_MODE"
+echo "Base image: $BASE_IMG"
+echo "No media, Wi-Fi credentials, SSH key, or application state is included."

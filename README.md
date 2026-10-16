@@ -30,29 +30,21 @@ Depending on what you're doing:
 | Browse the API | [`ENDPOINTS.md`](ENDPOINTS.md) or in-app at `/help/09-api-reference` |
 | See what's still on the punch list | [`OUTSTANDING-TASKS.md`](OUTSTANDING-TASKS.md) |
 
-## Ship workflow — build a Pi image with episodes baked in
+## Give someone a Pi image
 
-No USB drive required. Drop your episode files into `build/media/`, run two
-commands, hand Brian a single `.img` he burns and boots.
+Download the **Pi 4 / USB import** image from
+[GitHub Releases](https://github.com/niski84/little-jerrys/releases), flash it with
+Raspberry Pi Imager, and insert a USB drive containing the episodes. The appliance
+matches files against its bundled 180-entry Seinfeld catalog and copies them onto
+the SD card. Settings shows copy progress, missing episodes, and failures. A
+64 GB or larger card is required for the known ~32 GiB collection.
 
-```bash
-# 1. Put your episode .mp4 files in build/media/ (named s01e01_title.mp4 etc.)
-#    Commercials go in build/media/commercials/ (optional)
-mkdir -p build/media/commercials
-cp /path/to/your/episodes/*.mp4 build/media/
+The image contains the app and player. Episode media is supplied separately.
+Completed imports play from `/opt/jerry/media` with the USB removed; state stays
+in `/var/lib/jerry`. First boot expands the root filesystem before importing.
 
-# 2. Download Raspberry Pi OS Lite 64-bit (one-time, ~500MB)
-#    https://www.raspberrypi.com/software/operating-systems/
-#    Decompress the .xz, place at build/pi-os-lite-arm64.img
-
-# 3. Build — cross-compiles the Pi binary + bakes episodes into the image
-./scripts/build-pi-image.sh build/pi-os-lite-arm64.img
-# → build/little-jerrys-YYYYMMDD.img
-```
-
-Hand Brian the `.img`. He burns it with Raspberry Pi Imager, plugs HDMI into
-the TV, powers on — plays immediately. No USB drive, no setup screen, no
-Regenerate button. See [`BURN-PI.md`](BURN-PI.md) for Brian's full checklist.
+- [Brian's download, flash, copy and repair guide](BURN-PI.md)
+- [Maintainer image/release build instructions](docs/PI-RELEASE.md)
 
 ## Local dev
 
@@ -72,7 +64,7 @@ podman compose up --build    # web on :8089, VNC into mpv on :5901
 - **Backend:** Go 1.25 + stdlib `net/http` (no framework)
 - **UI:** Templ + HTMX + Alpine.js + Tailwind 4 + DaisyUI
 - **Player:** mpv (DRM/KMS direct on Pi; Xvfb in dev container)
-- **State:** JSON on the USB drive (`/media/usb/.jerry/state.json`)
+- **State:** JSON on the SD card (`/var/lib/jerry/state.json` in release images)
 - **Network:** NetworkManager via nmcli for AP fallback
 - **GPIO:** periph.io with build-tag `pi`
 
