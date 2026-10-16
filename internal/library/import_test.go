@@ -338,4 +338,9 @@ func TestRetryRevalidatesManualSDRepairWithPreservedMetadata(t *testing.T) {
 	if i.Snapshot().Present != 1 {
 		t.Fatal("manual retry retained the old local validation failure")
 	}
+	for _, result := range i.Snapshot().Results {
+		if result.Status == "local error" {
+			t.Fatal("fixed local error remained in report")
+		}
+	}
 }

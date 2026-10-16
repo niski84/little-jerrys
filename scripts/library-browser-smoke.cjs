@@ -25,7 +25,14 @@ if (!base || new URL(base).hostname !== '127.0.0.1') throw new Error('Requires d
       await page.setViewportSize({width, height: 900});
       await page.goto('/settings');
       await page.getByRole('heading', {name: '1 of 180 episodes on SD'}).waitFor();
-      let status = await (await context.request.get('/api/library/status')).json();
+      let status;
+      // A preceding Rescan starts a real asynchronous worker. Wait for its
+      // published idle state before asserting that the USB can be removed.
+      for (let attempt = 0; attempt < 100; attempt++) {
+        status = await (await context.request.get('/api/library/status')).json();
+        if (status.safe_to_remove) break;
+        await page.waitForTimeout(100);
+      }
       assert.equal(status.present, 1); assert.equal(status.missing, 179);
       assert.equal(status.safe_to_remove, true);
       assert.ok(['copied', 'already on SD'].includes(status.results[0].status));

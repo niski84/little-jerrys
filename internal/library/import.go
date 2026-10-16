@@ -355,6 +355,16 @@ func (i *Importer) runBatch(ctx context.Context, files []sourceFile) {
 		s.TotalBytes = 0
 		if len(files) > 0 {
 			s.Results = nil
+		} else {
+			// Rebuild local errors on every scan, while retaining the last
+			// USB report when the drive has been removed.
+			retained := s.Results[:0]
+			for _, result := range s.Results {
+				if result.Status != "local error" {
+					retained = append(retained, result)
+				}
+			}
+			s.Results = retained
 		}
 	})
 	present, issues, err := i.local(ctx)
