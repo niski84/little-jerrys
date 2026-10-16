@@ -98,8 +98,8 @@ cleanup() {
   trap - EXIT INT TERM
   set +e
   restore_chroot_overrides
-  local child_mounts=("$MNT_ROOT/dev/pts" "$MNT_ROOT/dev" "$MNT_ROOT/proc")
-  for target in "$MNT_BOOT" "${child_mounts[@]}"; do
+  local child_mounts=("$MNT_ROOT/boot/firmware" "$MNT_ROOT/dev/pts" "$MNT_ROOT/dev" "$MNT_ROOT/proc" "$MNT_ROOT/sys")
+  for target in "${child_mounts[@]}" "$MNT_BOOT"; do
     if mountpoint -q "$target" && ! sudo umount "$target"; then
       cleanup_log "could not unmount $target"
       cleanup_failed=1
@@ -191,6 +191,18 @@ sudo mount --bind /proc "$MNT_ROOT/proc"
 sudo mount --make-private "$MNT_ROOT/proc"
 sudo mount --bind /dev/pts "$MNT_ROOT/dev/pts"
 sudo mount --make-private "$MNT_ROOT/dev/pts"
+sudo mount --bind /sys "$MNT_ROOT/sys"
+sudo mount --make-private "$MNT_ROOT/sys"
+sudo mount -o remount,bind,ro "$MNT_ROOT/sys"
+# Package triggers regenerate the Pi initramfs. Build for the target's
+# available modules, rather than the workstation's currently loaded drivers,
+# and write generated boot files to the actual FAT firmware partition.
+sudo install -d -m 0755 "$MNT_ROOT/boot/firmware"
+sudo mount --bind "$MNT_BOOT" "$MNT_ROOT/boot/firmware"
+sudo mount --make-private "$MNT_ROOT/boot/firmware"
+sudo sed -i 's/^MODULES=.*/MODULES=most/' "$MNT_ROOT/etc/initramfs-tools/initramfs.conf"
+sudo grep -q '^MODULES=most$' "$MNT_ROOT/etc/initramfs-tools/initramfs.conf" || \
+  echo 'MODULES=most' | sudo tee -a "$MNT_ROOT/etc/initramfs-tools/initramfs.conf" >/dev/null
 
 log "installing offline playback runtime"
 chroot_clean /usr/bin/apt-get update
