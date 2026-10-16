@@ -50,7 +50,7 @@ func NewCatalog(cache *tmdb.Cache) (*Catalog, error) {
 var partSuffix = regexp.MustCompile(`(?i)(?:\s*\(([12])\)|[ ._-]+part[ ._-]*([12]))$`)
 var seasonFolder = regexp.MustCompile(`(?i)(?:^|[/\\])season[ ._-]*0*([1-9])(?:[/\\]|$)`)
 var folderEpisode = regexp.MustCompile(`(?i)^(?:episode[ ._-]*)?0*([0-9]{1,2})(?:[ ._-]+|$)`)
-var junk = regexp.MustCompile(`(?i)\b(?:seinfeld|1080p|720p|2160p|480p|bluray|blu ray|brrip|webrip|web dl|hdtv|dvdrip|x264|x265|h264|h265|hevc|aac|ac3|mkv|mp4)\b`)
+var junk = regexp.MustCompile(`(?i)\b(?:1080p|720p|2160p|480p|bluray|blu ray|brrip|webrip|web dl|hdtv|dvdrip|x264|x265|h264|h265|hevc|aac|ac3|mkv|mp4)\b`)
 var seasonCode = regexp.MustCompile(`(?i)(?:s[0-9]{1,2}[ ._-]*e[0-9]{1,2}(?:e[0-9]{1,2})*|[0-9]{1,2}x[0-9]{1,2}|season[ ._-]*[0-9]{1,2}[ ._-]*episode[ ._-]*[0-9]{1,2})`)
 
 func normalized(s string) string {
@@ -94,6 +94,7 @@ func (c *Catalog) Match(path string, duration float64) ([]episodeid.ID, string, 
 	clean := normalized(seasonCode.ReplaceAllString(stem, " "))
 	clean = strings.TrimSpace(junk.ReplaceAllString(clean, " "))
 	clean = normalized(clean)
+	clean = strings.TrimPrefix(clean, "seinfeld ")
 	clean = strings.ReplaceAll(clean, " part ", " ")
 	var matches []Episode
 	for _, e := range c.Episodes {
@@ -146,6 +147,19 @@ func (c *Catalog) Match(path string, duration float64) ([]episodeid.ID, string, 
 			}
 			if !found {
 				return nil, "", fmt.Errorf("episode number %s conflicts with title %q; rename using the correct SxxExx and title", ids[0], stem)
+			}
+			if len(ids) > 1 {
+				for _, id := range ids {
+					matched := false
+					for _, e := range matches {
+						if e.ID == id {
+							matched = true
+						}
+					}
+					if !matched {
+						return nil, "", fmt.Errorf("combined filename includes %s but its title does not identify that part; correct the title and episode range", id)
+					}
+				}
 			}
 			if len(ids) == 1 && len(matches) == 2 && consecutiveParts(matches) && duration >= 35*60 && episodeid.Contains(ids, matches[0].ID.Season, matches[0].ID.Episode) {
 				return []episodeid.ID{matches[0].ID, matches[1].ID}, "episode number and combined two-part title", nil

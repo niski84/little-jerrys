@@ -231,6 +231,17 @@ func (i *Importer) sources() ([]sourceFile, string, error) {
 	}
 	sort.Slice(files, func(a, b int) bool { return files[a].relative < files[b].relative })
 	h := sha256.New()
+	// Device/mount and directory identity distinguish newly attached volumes
+	// even when FAT timestamps and file lengths happen to be identical.
+	var rootStat unix.Stat_t
+	if err := unix.Stat(i.source, &rootStat); err != nil {
+		return nil, "", fmt.Errorf("identify USB: %w", err)
+	}
+	var rootFS unix.Statfs_t
+	if err := unix.Statfs(i.source, &rootFS); err != nil {
+		return nil, "", fmt.Errorf("identify USB filesystem: %w", err)
+	}
+	fmt.Fprintf(h, "%d:%d:%v\n", rootStat.Dev, rootStat.Ino, rootFS.Fsid)
 	for _, f := range files {
 		fmt.Fprintf(h, "%s\x00%d\x00%d\n", f.relative, f.info.Size(), f.info.ModTime().UnixNano())
 	}
@@ -331,6 +342,14 @@ func (i *Importer) setCoverage(present map[episodeid.ID]string) {
 }
 
 func (i *Importer) runBatch(ctx context.Context, files []sourceFile) {
+	// Re-probe USB inputs on every new batch/retry. Correcting a file can
+	// preserve its size and coarse FAT timestamp, so metadata is not enough
+	// to reuse a prior validation failure or combined-episode duration.
+	for path := range i.validated {
+		if within(i.source, path) {
+			delete(i.validated, path)
+		}
+	}
 	i.update(func(s *Status) {
 		s.Phase = "scanning"
 		s.SafeToRemove = false

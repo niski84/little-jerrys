@@ -40,11 +40,13 @@ func TestRealCatalogMatching(t *testing.T) {
 		{"Season 09/12 - The Reverse Peephole.mkv", 1320, []episodeid.ID{{Season: 9, Episode: 12}}, false},
 		{"The_Reverse_Peepole_1080p.mkv", 1320, []episodeid.ID{{Season: 9, Episode: 12}}, false},
 		{"The Soup Nazi.mkv", 1320, []episodeid.ID{{Season: 7, Episode: 6}}, false},
+		{"The Seinfeld Chronicles.mkv", 1320, []episodeid.ID{{Season: 1, Episode: 1}}, false},
 		{"The Boyfriend Part 2.mkv", 1320, []episodeid.ID{{Season: 3, Episode: 18}}, false},
 		{"The Boyfriend.mkv", 2640, []episodeid.ID{{Season: 3, Episode: 17}, {Season: 3, Episode: 18}}, false},
 		{"S03E17E18 - The Boyfriend.mkv", 2640, []episodeid.ID{{Season: 3, Episode: 17}, {Season: 3, Episode: 18}}, false},
 		{"The Boyfriend.mkv", 1320, nil, true},
 		{"S03E17E18 - The Boyfriend.mkv", 1320, nil, true},
+		{"S01E01E02 - The Seinfeld Chronicles.mkv", 2640, nil, true},
 		{"S01E02 - Male Unbonding.mkv", 1320, nil, true},
 		{"S09E99.mkv", 1320, nil, true},
 		{"random 1080p 1994.mkv", 1320, nil, true},
@@ -253,5 +255,57 @@ func TestRealFFprobeAndByteVerifiedCopy(t *testing.T) {
 	}
 	if _, err := os.Stat(source); err != nil {
 		t.Fatal("USB original missing")
+	}
+}
+
+func TestRetryRevalidatesSameSizeAndTimestampSource(t *testing.T) {
+	i := fixture(t)
+	src := writeVideo(t, i.source, "s01e01.mkv", "bad!")
+	original, _ := os.Stat(src)
+	i.probe = func(_ context.Context, path string) (float64, error) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return 0, err
+		}
+		if string(data) == "bad!" {
+			return 0, errors.New("damaged source")
+		}
+		return 1320, nil
+	}
+	run(t, i)
+	if i.Snapshot().Present != 0 {
+		t.Fatal("invalid source imported")
+	}
+	if err := os.WriteFile(src, []byte("good"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(src, original.ModTime(), original.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	run(t, i)
+	if s := i.Snapshot(); s.Present != 1 {
+		t.Fatalf("retry reused stale validation: %+v", s.Results)
+	}
+}
+
+func TestUSBIdentityChangesEvenWithIdenticalFileMetadata(t *testing.T) {
+	i := fixture(t)
+	first := writeVideo(t, i.source, "s01e01.mkv", "same")
+	info, _ := os.Stat(first)
+	_, before, err := i.sources()
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.source = t.TempDir()
+	second := writeVideo(t, i.source, "s01e01.mkv", "same")
+	if err := os.Chtimes(second, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	_, after, err := i.sources()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before == after {
+		t.Fatal("new source identity was ignored")
 	}
 }

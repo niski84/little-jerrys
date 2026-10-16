@@ -44,10 +44,11 @@ ROOT_PART_NUMBER=$(lsblk -n -o PARTN "$ROOT_PART" | head -1)
 [[ -n "$ROOT_DISK_NAME" && -n "$ROOT_PART_NUMBER" ]] || fail "cannot determine root disk and partition number"
 ROOT_DISK="/dev/$ROOT_DISK_NAME"
 log "growing root partition $ROOT_PART_NUMBER on $ROOT_DISK to fill the SD card"
-set +e
-GROW_OUTPUT=$(growpart "$ROOT_DISK" "$ROOT_PART_NUMBER" 2>&1)
-GROW_RC=$?
-set -e
+if GROW_OUTPUT=$(growpart "$ROOT_DISK" "$ROOT_PART_NUMBER" 2>&1); then
+  GROW_RC=0
+else
+  GROW_RC=$?
+fi
 if (( GROW_RC != 0 )) && [[ "$GROW_OUTPUT" != *NOCHANGE* ]]; then
   fail "growpart failed (status $GROW_RC): $GROW_OUTPUT"
 fi
