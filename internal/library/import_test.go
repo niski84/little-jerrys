@@ -309,3 +309,33 @@ func TestUSBIdentityChangesEvenWithIdenticalFileMetadata(t *testing.T) {
 		t.Fatal("new source identity was ignored")
 	}
 }
+
+func TestRetryRevalidatesManualSDRepairWithPreservedMetadata(t *testing.T) {
+	i := fixture(t)
+	path := writeVideo(t, i.destination, "s01e01.mkv", "bad!")
+	original, _ := os.Stat(path)
+	i.probe = func(_ context.Context, path string) (float64, error) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return 0, err
+		}
+		if string(data) == "bad!" {
+			return 0, errors.New("damaged local video")
+		}
+		return 1320, nil
+	}
+	run(t, i)
+	if i.Snapshot().Present != 0 {
+		t.Fatal("damaged SD video counted")
+	}
+	if err := os.WriteFile(path, []byte("good"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, original.ModTime(), original.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	run(t, i)
+	if i.Snapshot().Present != 1 {
+		t.Fatal("manual retry retained the old local validation failure")
+	}
+}

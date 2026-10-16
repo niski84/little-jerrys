@@ -342,14 +342,10 @@ func (i *Importer) setCoverage(present map[episodeid.ID]string) {
 }
 
 func (i *Importer) runBatch(ctx context.Context, files []sourceFile) {
-	// Re-probe USB inputs on every new batch/retry. Correcting a file can
-	// preserve its size and coarse FAT timestamp, so metadata is not enough
-	// to reuse a prior validation failure or combined-episode duration.
-	for path := range i.validated {
-		if within(i.source, path) {
-			delete(i.validated, path)
-		}
-	}
+	// Re-probe inputs and manual SD repairs on each new batch/retry. A
+	// replacement can preserve its size and timestamp, so metadata alone
+	// must not retain an earlier validation failure or two-part duration.
+	i.validated = map[string]validation{}
 	i.update(func(s *Status) {
 		s.Phase = "scanning"
 		s.SafeToRemove = false
